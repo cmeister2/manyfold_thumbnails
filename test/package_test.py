@@ -18,7 +18,6 @@ class PackageTest(unittest.TestCase):
         self.root = Path(temporary.name)
         (self.root / "bin").mkdir()
         shutil.copyfile(Path(__file__).resolve().parents[1] / "bin/package", self.root / "bin/package")
-        shutil.copyfile(Path(__file__).resolve().parents[1] / "bin/vendor-catwalk", self.root / "bin/vendor-catwalk")
         self.runtime = {
             "manyfold_thumbnails.gemspec": 'Gem::Specification.new do |spec|\n  spec.version = "0.0.0"\nend\n',
             "app/jobs/manyfold_thumbnails/backfill_job.rb": "# Job\n",
@@ -26,9 +25,11 @@ class PackageTest(unittest.TestCase):
             "db/migrate/create_specialist_preview_backfills.rb": "# Migration\n",
             "lib/manyfold_thumbnails.rb": "# Plugin\n",
             "lib/file_handlers/catwalk_thumbnailer.rb": "# Handler\n",
+            "lib/manyfold_thumbnails/executable.rb": "# Downloader\n",
             "lib/tasks/manyfold_thumbnails.rake": "# Tasks\n",
         }
         metadata = {"version": "2.0.0", "targets": {}}
+        self.legacy_vendor = {}
         for target in ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"):
             vendor_files = {
                 "catwalk": "#!/bin/sh\nexit 0\n",
@@ -42,9 +43,11 @@ class PackageTest(unittest.TestCase):
                 "files": {name: hashlib.sha256(content.encode()).hexdigest() for name, content in vendor_files.items()}
             }
             for name, content in vendor_files.items():
-                self.runtime[f"lib/manyfold_thumbnails/vendor/{target}/{name}"] = content
+                self.legacy_vendor[f"lib/manyfold_thumbnails/vendor/{target}/{name}"] = content
         self.runtime["config/catwalk.json"] = json.dumps(metadata)
         for name, content in self.runtime.items():
+            self.write(name, content)
+        for name, content in self.legacy_vendor.items():
             self.write(name, content)
         (self.root / "lib/manyfold_thumbnails.rb").chmod(0o755)
         for target in metadata["targets"]:
@@ -70,8 +73,7 @@ class PackageTest(unittest.TestCase):
             for name, content in self.runtime.items():
                 self.assertEqual(archive.read(name).decode("utf-8"), content)
             self.assertEqual(stat.S_IMODE(archive.getinfo("lib/manyfold_thumbnails.rb").external_attr >> 16), 0o755)
-            for target in ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"):
-                self.assertEqual(stat.S_IMODE(archive.getinfo(f"lib/manyfold_thumbnails/vendor/{target}/catwalk").external_attr >> 16), 0o755)
+            self.assertFalse(any("/vendor/" in name for name in archive.namelist()))
 
     def test_release_version_changes_archive_only(self):
         result = self.run_package("1.2.3")
@@ -100,30 +102,31 @@ class PackageTest(unittest.TestCase):
                 self.assertIn("VERSION must be", result.stderr)
         self.assertEqual(list((self.root / "dist").iterdir()), [self.root / "dist/old.zip"])
 
-    def test_missing_binary_creates_no_package(self):
-        (self.root / "lib/manyfold_thumbnails/vendor/aarch64-unknown-linux-musl/catwalk").unlink()
+    def test_packaging_needs_no_local_binary_or_network(self):
+        shutil.rmtree(self.root / "lib/manyfold_thumbnails/vendor")
         result = self.run_package()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Run bin/vendor-catwalk", result.stderr)
-        self.assertFalse((self.root / "dist/manyfold_thumbnails.zip").exists())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with zipfile.ZipFile(self.root / "dist/manyfold_thumbnails.zip") as archive:
+            self.assertEqual(set(archive.namelist()), set(self.runtime))
 
-    def test_modified_binary_and_notices_create_no_package(self):
+    def test_legacy_binary_and_notices_are_excluded_even_when_modified(self):
         for name in ("catwalk", "LICENSE", "RUST-LICENSES.html", "THIRD_PARTY_LICENSES.html", "MUSL-COPYRIGHT", "release.json"):
             path = f"lib/manyfold_thumbnails/vendor/x86_64-unknown-linux-musl/{name}"
             with self.subTest(name=name):
                 self.write(path, "Changed\n")
                 result = self.run_package()
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn("unverified Catwalk asset", result.stderr)
-                self.assertFalse((self.root / "dist/manyfold_thumbnails.zip").exists())
-                self.write(path, self.runtime[path])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                with zipfile.ZipFile(self.root / "dist/manyfold_thumbnails.zip") as archive:
+                    self.assertNotIn(path, archive.namelist())
+                self.write(path, self.legacy_vendor[path])
 
-    def test_nonexecutable_binary_creates_no_package(self):
+    def test_test_assets_are_never_packaged(self):
+        self.write("test/vendor/catwalk/x86_64-unknown-linux-musl/catwalk", "Test asset\n")
         (self.root / "lib/manyfold_thumbnails/vendor/x86_64-unknown-linux-musl/catwalk").chmod(0o644)
         result = self.run_package()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("not executable", result.stderr)
-        self.assertFalse((self.root / "dist/manyfold_thumbnails.zip").exists())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with zipfile.ZipFile(self.root / "dist/manyfold_thumbnails.zip") as archive:
+            self.assertEqual(set(archive.namelist()), set(self.runtime))
 
 
 if __name__ == "__main__":

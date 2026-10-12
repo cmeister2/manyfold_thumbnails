@@ -12,6 +12,7 @@ services:
     environment:
       SECRET_KEY_BASE: local-plugin-development-only-8e7b41e9a6c547ca8b32c78c887bb7be
       PLUGINS_PATH: /plugins
+      MANYFOLD_THUMBNAILS_CATWALK_CACHE: ${MANYFOLD_THUMBNAILS_CATWALK_CACHE:-/config/catwalk}
       MULTIUSER: disabled
       PUID: "1000"
       PGID: "1000"

@@ -2,7 +2,7 @@
 
 Generate thumbnails for design files in Manyfold by invoking [Catwalk3D](https://github.com/cmeister2/catwalk3d). Manyfold stores the image as its normal `render` derivative and displays it on file pages and model cards when that file is selected as the preview. Source files are preserved.
 
-The plugin requires **Manyfold 0.151.0 or newer**. Release ZIPs include Catwalk 2.0.0 executables for Linux x86_64 and ARM64. Thumbnail generation runs locally on the CPU, without a display server, GPU, CAD installation, or external service. The installed plugin does not download executables.
+The plugin requires **Manyfold 0.151.0 or newer**. It downloads the pinned Catwalk 2.0.0 release from GitHub for Linux x86_64 or ARM64 when an enabled file first needs a thumbnail. The archive and extracted files are verified against SHA-256 checksums shipped with the plugin. Later thumbnails reuse the downloaded executable. Rendering runs locally on the CPU, without a display server, GPU, CAD installation, or external rendering service.
 
 ## Supported files
 
@@ -47,7 +47,11 @@ Administrators can open **Thumbnail settings** in the main navigation. The forma
 
 Settings are stored in Manyfold's database and apply to web and worker processes without restarting them. Changes affect future processing, backfill and explicit regeneration; they do not replace existing thumbnails. The plugin generates all of its thumbnails through Catwalk, including Inventor saved previews.
 
-To use a separately installed Catwalk executable, set `MANYFOLD_THUMBNAILS_CATWALK` to its absolute path in both web and worker environments. The bundled executables target Linux x86_64 and ARM64; other platforms require a compatible executable through that setting.
+Catwalk is cached under `.cache/manyfold_thumbnails` in Manyfold's persistent plugins directory, with separate folders for each release and architecture. Web and worker processes can share this cache; concurrent downloads are locked and completed installations are published atomically. Set `MANYFOLD_THUMBNAILS_CATWALK_CACHE` to a writable persistent directory if the plugins volume is read-only. Its filesystem must permit execution. The development Compose setup uses `/config/catwalk`.
+
+The first download requires access to GitHub. Startup and the settings page do not download anything. If the download fails, thumbnail generation records the failure while retaining the source and any previous render; retry when connectivity is restored. An existing verified cache works offline.
+
+To use a separately installed Catwalk executable, set `MANYFOLD_THUMBNAILS_CATWALK` to its absolute path in both web and worker environments. This bypasses downloading and remains available for offline installations and other platforms. Automatic downloads support Linux x86_64 and ARM64.
 
 ## Existing files and regeneration
 
@@ -84,6 +88,9 @@ Regeneration replaces only the selected file's `render` derivative and preserves
 | Catwalk limit | Value |
 | --- | ---: |
 | Main source file | 512 MiB |
+| Downloaded release archive | 64 MiB |
+| Extracted release files | 128 MiB |
+| Download, verification and cache-lock deadline | 120 seconds |
 | Processing deadline, including any local source copy | 60 seconds |
 | PNG output | 8 MiB |
 | Captured diagnostics | 64 KiB |
@@ -92,16 +99,15 @@ The deadline terminates the Catwalk process when exceeded. Source downloads and 
 
 ## Development
 
-Fetch the checksum-pinned Catwalk release and build a ZIP with an explicit plugin version:
+Build a ZIP with an explicit plugin version; packaging does not download Catwalk:
 
 ```sh
-python3 bin/vendor-catwalk
-python3 bin/package 0.1.0
+python3 bin/package 0.2.0
 ```
 
-The archive is written to `dist/manyfold_thumbnails.zip`; the source gemspec version is unchanged. Both architectures and the upstream license notices are included.
+The archive is written to `dist/manyfold_thumbnails.zip`; the source gemspec version is unchanged. It contains the plugin code and pinned download manifest. The downloaded Catwalk cache retains its upstream license notices.
 
-Run `bin/test` with Python 3 and Docker to check thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Start the development instance with `docker compose up --build -d`, then open <http://localhost:3215>. After code changes, restart it with `docker compose restart manyfold`.
+Run `bin/test` with Python 3 and Docker to check downloads, thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Test assets are downloaded separately into ignored `test/vendor/catwalk` storage and mounted into network-isolated test containers; they are never included in the plugin ZIP. Start the development instance with `docker compose up --build -d`, then open <http://localhost:3215>. After code changes, restart it with `docker compose restart manyfold`.
 
 Releases use Conventional Commits and tags named `X.Y.Z`. The original template HEAD is tagged `0.0.0`, so the first thumbnail feature commit releases as `0.1.0`. Earlier Cults3D release tags are preserved locally as `template-vX.Y.Z` and are not published as thumbnail versions. Release analysis and notes exclude history inherited from the earlier Cults3D plugin. Release tooling requires Node 24.15 or newer:
 

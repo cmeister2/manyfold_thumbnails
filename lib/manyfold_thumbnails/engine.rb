@@ -7,6 +7,9 @@ module ManyfoldThumbnails
     config.to_prepare do
       require "manyfold_thumbnails/model_file_preview_cache"
       ::ModelFile.prepend(ModelFilePreviewCache) unless ::ModelFile < ModelFilePreviewCache
+
+      require "manyfold_thumbnails/plugin_settings_link"
+      ::Views::Plugins::Index.prepend(PluginSettingsLink) unless ::Views::Plugins::Index < PluginSettingsLink
     end
 
     initializer "manyfold_thumbnails.append_migrations",

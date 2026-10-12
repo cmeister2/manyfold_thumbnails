@@ -193,13 +193,23 @@ class ThumbnailsPluginTest
     admin = browser(@users.first)
     admin.get("/models")
     assert_equal 200, admin.response.status
-    assert Nokogiri::HTML(admin.response.body).at_css("a[href='/manyfold_thumbnails']") ||
-      Nokogiri::HTML(admin.response.body).at_css("a[href='/manyfold_thumbnails/']")
+    refute Nokogiri::HTML(admin.response.body).at_css("a[href^='/manyfold_thumbnails']")
+    admin.get(Rails.application.routes.url_helpers.settings_plugins_path)
+    assert_equal 200, admin.response.status
+    document = Nokogiri::HTML(admin.response.body)
+    links = document.css("a[href^='/manyfold_thumbnails']")
+    assert_equal 1, links.length
+    assert_equal "thumbnail-settings-link", links.first["id"]
+    assert_equal "Thumbnail settings", links.first.text.strip
+    assert_equal "/manyfold_thumbnails", links.first["href"].delete_suffix("/")
+    assert_equal "table", links.first.parent.previous_element.name
 
     member = browser(@users.last)
     member.get("/models")
     assert_equal 200, member.response.status
     refute Nokogiri::HTML(member.response.body).at_css("a[href^='/manyfold_thumbnails']")
+    member.get(Rails.application.routes.url_helpers.settings_plugins_path)
+    assert_equal 404, member.response.status
     member.get("/manyfold_thumbnails/")
     assert_equal 404, member.response.status
     member.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: [Mime[:obj].to_s]}})

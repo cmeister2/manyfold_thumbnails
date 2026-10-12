@@ -5,6 +5,7 @@ require "rbconfig"
 require "stringio"
 require "tempfile"
 require "timeout"
+require_relative "executable"
 require_relative "formats"
 
 module ManyfoldThumbnails
@@ -20,16 +21,7 @@ module ManyfoldThumbnails
     attr_reader :status, :reason
 
     def self.binary
-      configured = ENV["MANYFOLD_THUMBNAILS_CATWALK"]
-      return configured unless configured.nil? || configured.empty?
-
-      architecture = case RbConfig::CONFIG.fetch("host_cpu")
-      when /\A(?:x86_64|amd64)\z/ then "x86_64"
-      when /\A(?:aarch64|arm64)\z/ then "aarch64"
-      else
-        raise ProcessingError, "No bundled Catwalk executable for this architecture; set MANYFOLD_THUMBNAILS_CATWALK."
-      end
-      File.expand_path("vendor/#{architecture}-unknown-linux-musl/catwalk", __dir__)
+      Executable.path
     end
 
     def initialize(file:, record:)
@@ -43,9 +35,10 @@ module ManyfoldThumbnails
       extension = Formats.extension(@record)
       return {} unless Formats::CATWALK_EXTENSIONS.include?(extension)
 
-      deadline = monotonic_time + self.class::MAX_SECONDS
       check_source_size!(@file.size)
-      output, diagnostic, exit_status = with_input(extension, deadline) { |path| run(path, deadline) }
+      binary = self.class.binary
+      deadline = monotonic_time + self.class::MAX_SECONDS
+      output, diagnostic, exit_status = with_input(extension, deadline) { |path| run(binary, path, deadline) }
       unless exit_status == 0
         @status = (exit_status == 3) ? :missing_image : :failed
         @reason = diagnostic_reason(diagnostic, "Catwalk exited with status #{exit_status}.")
@@ -62,7 +55,7 @@ module ManyfoldThumbnails
       {render: StringIO.new(output)}
     rescue Timeout::Error
       fail_with("Catwalk exceeded the #{self.class::MAX_SECONDS}-second processing limit.")
-    rescue ProcessingError, IOError, SystemCallError => error
+    rescue ProcessingError, Executable::DownloadError, IOError, SystemCallError => error
       fail_with(error.message)
     end
 
@@ -112,10 +105,10 @@ module ManyfoldThumbnails
       @file.rewind if @file.respond_to?(:rewind)
     end
 
-    def run(path, deadline)
+    def run(binary, path, deadline)
       output = +"".b
       diagnostic = +"".b
-      Open3.popen3(self.class.binary, path, "--output", "-", "--size", SIZE.to_s,
+      Open3.popen3(binary, path, "--output", "-", "--size", SIZE.to_s,
         "--transparent", pgroup: true) do |input, stdout, stderr, process|
         completed = false
         input.close

@@ -16,11 +16,11 @@ def main():
         source.mkdir()
         for directory in ("app", "config", "db", "lib"):
             if (root / directory).exists():
-                shutil.copytree(root / directory, source / directory)
+                shutil.copytree(root / directory, source / directory,
+                                ignore=shutil.ignore_patterns("vendor"))
         shutil.copy2(root / "manyfold_thumbnails.gemspec", source)
         (source / "bin").mkdir()
         shutil.copy2(root / "bin/package", source / "bin/package")
-        shutil.copy2(root / "bin/vendor-catwalk", source / "bin/vendor-catwalk")
         subprocess.run([sys.executable, str(source / "bin/package"), version], check=True, stdout=subprocess.DEVNULL)
 
         plugin = workspace / "plugin"

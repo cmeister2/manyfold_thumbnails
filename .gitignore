@@ -5,6 +5,7 @@ __pycache__/
 dist/
 node_modules/
 lib/manyfold_thumbnails/vendor/
+test/vendor/
 .env
 .env.*
 !.env.example

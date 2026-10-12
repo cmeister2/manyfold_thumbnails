@@ -2,6 +2,7 @@
 set -eu
 
 cd /usr/src/app
+bundle exec ruby /plugins/manyfold_thumbnails/test/support/seed_catwalk_cache.rb
 redis-server --bind 127.0.0.1 --save "" --appendonly no --daemonize yes --logfile /tmp/redis.log
 bundle exec rails db:prepare:with_data >/tmp/thumbnails-test-db.log 2>&1 || {
   cat /tmp/thumbnails-test-db.log

@@ -3,8 +3,6 @@
 import argparse
 from pathlib import Path
 import re
-import subprocess
-import sys
 import zipfile
 
 
@@ -23,12 +21,12 @@ def main():
     if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", args.version):
         parser.error("VERSION must be an X.Y.Z version without leading zeroes.")
 
-    subprocess.run([sys.executable, str(root / "bin/vendor-catwalk"), "--check"], check=True, stdout=subprocess.DEVNULL)
-
     packaged_gemspec = version_line.sub(lambda line: f'{line[1]}"{args.version}"', source)
     files = [gemspec]
+    legacy_vendor = root / "lib/manyfold_thumbnails/vendor"
     for directory in ("app", "config", "db", "lib"):
-        files.extend(path for path in (root / directory).rglob("*") if path.is_file())
+        files.extend(path for path in (root / directory).rglob("*")
+                     if path.is_file() and legacy_vendor not in path.parents)
 
     destination = root / "dist" / "manyfold_thumbnails.zip"
     destination.parent.mkdir(exist_ok=True)

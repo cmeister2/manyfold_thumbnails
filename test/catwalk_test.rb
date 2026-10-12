@@ -5,9 +5,12 @@ require "fileutils"
 require "tmpdir"
 require "rbconfig"
 require_relative "support/inventor_fixture"
+require_relative "support/temporary_method"
 require_relative "../lib/manyfold_thumbnails/catwalk"
 
 class CatwalkThumbnailTest < Minitest::Test
+  include TemporaryMethod
+
   Record = Struct.new(:filename)
 
   def setup
@@ -179,5 +182,29 @@ class CatwalkThumbnailTest < Minitest::Test
     assert_empty extractor.call
     assert_equal :failed, extractor.status
     assert_includes extractor.reason, "missing"
+  end
+
+  def test_download_failure_reports_failure_without_a_derivative
+    failure = lambda { raise ManyfoldThumbnails::Executable::DownloadError, "GitHub download timed out" }
+    with_temporary_method(ManyfoldThumbnails::Executable, :path, failure) do
+      extractor = provider(filename: "drawing.lbrn2")
+      assert_empty extractor.call
+      assert_equal :failed, extractor.status
+      assert_includes extractor.reason, "GitHub download timed out"
+    end
+  end
+
+  def test_unsupported_or_empty_source_does_not_trigger_a_download
+    forbidden = lambda { raise "A rejected source must not trigger a download" }
+    with_temporary_method(ManyfoldThumbnails::Executable, :path, forbidden) do
+      extractor = provider(filename: "unsupported.bin")
+      assert_empty extractor.call
+      assert_equal :missing_image, extractor.status
+
+      extractor = provider(source: "", filename: "drawing.lbrn2")
+      assert_empty extractor.call
+      assert_equal :failed, extractor.status
+      assert_includes extractor.reason, "empty"
+    end
   end
 end

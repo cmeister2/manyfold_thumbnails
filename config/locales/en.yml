@@ -5,6 +5,7 @@ en:
       show:
         heading: Thumbnail settings
         description: Catwalk renders the selected file types. By default, it is enabled for types without a built-in Manyfold thumbnail provider.
+        download: Catwalk is downloaded from GitHub when an enabled file first needs a thumbnail, then reused from the local cache.
         renders_disabled: Model thumbnail generation is currently disabled in Manyfold.
         derivatives_settings: Open Derivatives settings
         file_types: File types

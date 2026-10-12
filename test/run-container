@@ -9,7 +9,9 @@ set -- docker run --rm --pull=missing --network none \
   --entrypoint /plugins/manyfold_thumbnails/test/run \
   --mount "type=bind,source=$source_root,target=/plugins/manyfold_thumbnails,readonly" \
   --mount "type=bind,source=$plugin_root/test,target=/plugins/manyfold_thumbnails/test,readonly" \
-  --tmpfs /config \
+  --mount "type=bind,source=$plugin_root/test/vendor/catwalk,target=/test-catwalk,readonly" \
+  --tmpfs /config:exec \
+  --env MANYFOLD_THUMBNAILS_CATWALK_CACHE=/config/catwalk \
   --env PLUGINS_PATH=/plugins \
   --env DATABASE_URL=sqlite3:/config/manyfold.sqlite3 \
   --env REDIS_URL=redis://127.0.0.1:6379/1 \

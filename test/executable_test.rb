@@ -106,6 +106,32 @@ class CatwalkExecutableTest < Minitest::Test
     assert_empty cached.requests, "A second worker must reuse the verified cache without downloading"
   end
 
+  def test_binary_release_bytes_are_preserved_with_utf8_default_encodings
+    original_external = Encoding.default_external
+    original_internal = Encoding.default_internal
+    binary_bytes = "\x7FELF\x00\x80\xFF".b
+    files = CatwalkReleaseFixture.files.merge("catwalk" => binary_bytes)
+    @archive = CatwalkReleaseFixture.archive(files)
+    write_manifest(archive: @archive, files: files)
+    Encoding.default_external = Encoding::UTF_8
+    Encoding.default_internal = Encoding::UTF_8
+
+    executable = downloader
+    binary = executable.path
+    assert File.executable?(binary)
+    assert_equal binary_bytes, File.binread(binary)
+    assert_equal [CatwalkReleaseFixture::URL], executable.requests.map(&:to_s)
+
+    cached = downloader
+    cached.responses.clear
+    assert_equal binary, cached.path
+    assert_equal binary_bytes, File.binread(binary)
+    assert_empty cached.requests, "Binary bytes must remain valid when a worker verifies the cached release"
+  ensure
+    Encoding.default_external = original_external
+    Encoding.default_internal = original_internal
+  end
+
   def test_changed_cached_binary_is_replaced_by_a_verified_download
     original = downloader.path
     File.binwrite(original, "tampered")

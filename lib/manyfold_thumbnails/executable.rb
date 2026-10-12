@@ -297,6 +297,7 @@ module ManyfoldThumbnails
           bytes = 0
           path = File.join(destination, name)
           File.open(path, File::WRONLY | File::CREAT | File::EXCL, 0o600) do |file|
+            file.binmode
             reader.read_data(16_384) do |chunk|
               remaining_time(deadline)
               bytes += chunk.bytesize

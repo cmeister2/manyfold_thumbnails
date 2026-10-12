@@ -1,9 +1,12 @@
-name: manyfold-cults3d-dev
+name: manyfold-thumbnails-dev
 
 services:
   manyfold:
-    build: .
-    image: manyfold-cults3d-dev
+    build:
+      context: .
+      args:
+        MANYFOLD_IMAGE: ${MANYFOLD_IMAGE:-manyfold3d/manyfold-solo:0.151.0@sha256:772bcb18f0cb69d4fd0630d4676516f34fb37e42c3ac9d65eea5f173728e818e}
+    image: manyfold-thumbnails-dev
     ports:
       - "127.0.0.1:3215:3214"
     environment:
@@ -12,11 +15,9 @@ services:
       MULTIUSER: disabled
       PUID: "1000"
       PGID: "1000"
-      CULTS3D_USERNAME: ${CULTS3D_USERNAME:-}
-      CULTS3D_API_KEY: ${CULTS3D_API_KEY:-}
     volumes:
       - local-config:/config
-      - .:/plugins/manyfold_cults3d:ro
+      - .:/plugins/manyfold_thumbnails:ro
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:3214/health"]
       interval: 5s

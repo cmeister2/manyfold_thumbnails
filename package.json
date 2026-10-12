@@ -1,10 +1,10 @@
 {
-  "name": "manyfold-cults3d-release",
+  "name": "manyfold-thumbnails-release",
   "version": "0.0.0-development",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cmeister2/manyfold_cults3d.git"
+    "url": "git+https://github.com/cmeister2/manyfold_thumbnails.git"
   },
   "engines": {
     "node": ">=24.15.0"

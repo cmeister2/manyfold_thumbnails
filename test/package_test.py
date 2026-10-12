@@ -1,5 +1,7 @@
 """Check the release ZIP layout using a disposable plugin checkout."""
 from pathlib import Path
+import hashlib
+import json
 import shutil
 import stat
 import subprocess
@@ -16,16 +18,37 @@ class PackageTest(unittest.TestCase):
         self.root = Path(temporary.name)
         (self.root / "bin").mkdir()
         shutil.copyfile(Path(__file__).resolve().parents[1] / "bin/package", self.root / "bin/package")
+        shutil.copyfile(Path(__file__).resolve().parents[1] / "bin/vendor-catwalk", self.root / "bin/vendor-catwalk")
         self.runtime = {
-            "manyfold_cults3d.gemspec": 'Gem::Specification.new do |spec|\n  spec.version = "0.0.0"\nend\n',
-            "app/views/status.html.erb": "<p>Status</p>\n",
-            "config/routes.rb": "# Routes\n",
-            "db/migrate/create_library_models.rb": "# Migration\n",
-            "lib/manyfold_cults3d.rb": "# Plugin\n",
+            "manyfold_thumbnails.gemspec": 'Gem::Specification.new do |spec|\n  spec.version = "0.0.0"\nend\n',
+            "app/jobs/manyfold_thumbnails/backfill_job.rb": "# Job\n",
+            "config/locales/en.yml": "en: {}\n",
+            "db/migrate/create_specialist_preview_backfills.rb": "# Migration\n",
+            "lib/manyfold_thumbnails.rb": "# Plugin\n",
+            "lib/file_handlers/catwalk_thumbnailer.rb": "# Handler\n",
+            "lib/tasks/manyfold_thumbnails.rake": "# Tasks\n",
         }
+        metadata = {"version": "2.0.0", "targets": {}}
+        for target in ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"):
+            vendor_files = {
+                "catwalk": "#!/bin/sh\nexit 0\n",
+                "LICENSE": "License\n",
+                "THIRD_PARTY_LICENSES.html": "Third-party notices\n",
+                "RUST-LICENSES.html": "Rust notices\n",
+                "MUSL-COPYRIGHT": "Musl notices\n",
+                "release.json": json.dumps({"version": "2.0.0", "target": target, "binary": "catwalk"}),
+            }
+            metadata["targets"][target] = {
+                "files": {name: hashlib.sha256(content.encode()).hexdigest() for name, content in vendor_files.items()}
+            }
+            for name, content in vendor_files.items():
+                self.runtime[f"lib/manyfold_thumbnails/vendor/{target}/{name}"] = content
+        self.runtime["config/catwalk.json"] = json.dumps(metadata)
         for name, content in self.runtime.items():
             self.write(name, content)
-        (self.root / "lib/manyfold_cults3d.rb").chmod(0o755)
+        (self.root / "lib/manyfold_thumbnails.rb").chmod(0o755)
+        for target in metadata["targets"]:
+            (self.root / f"lib/manyfold_thumbnails/vendor/{target}/catwalk").chmod(0o755)
         for name in ("README.md", "test/plugin_test.rb", "Dockerfile", "node_modules/package/index.js", ".git/config", "dist/old.zip"):
             self.write(name, "Excluded\n")
 
@@ -40,32 +63,34 @@ class PackageTest(unittest.TestCase):
     def test_default_version_and_installable_archive(self):
         result = self.run_package()
         self.assertEqual(result.returncode, 0, result.stderr)
-        output = self.root / "dist/manyfold_cults3d.zip"
+        output = self.root / "dist/manyfold_thumbnails.zip"
         self.assertEqual(result.stdout.strip(), str(output))
         with zipfile.ZipFile(output) as archive:
             self.assertEqual(set(archive.namelist()), set(self.runtime))
             for name, content in self.runtime.items():
                 self.assertEqual(archive.read(name).decode("utf-8"), content)
-            self.assertEqual(stat.S_IMODE(archive.getinfo("lib/manyfold_cults3d.rb").external_attr >> 16), 0o755)
+            self.assertEqual(stat.S_IMODE(archive.getinfo("lib/manyfold_thumbnails.rb").external_attr >> 16), 0o755)
+            for target in ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"):
+                self.assertEqual(stat.S_IMODE(archive.getinfo(f"lib/manyfold_thumbnails/vendor/{target}/catwalk").external_attr >> 16), 0o755)
 
     def test_release_version_changes_archive_only(self):
         result = self.run_package("1.2.3")
         self.assertEqual(result.returncode, 0, result.stderr)
-        with zipfile.ZipFile(self.root / "dist/manyfold_cults3d.zip") as archive:
-            expected = self.runtime["manyfold_cults3d.gemspec"].replace('"0.0.0"', '"1.2.3"')
-            self.assertEqual(archive.read("manyfold_cults3d.gemspec").decode("utf-8"), expected)
-        self.assertEqual((self.root / "manyfold_cults3d.gemspec").read_text(encoding="utf-8"), self.runtime["manyfold_cults3d.gemspec"])
+        with zipfile.ZipFile(self.root / "dist/manyfold_thumbnails.zip") as archive:
+            expected = self.runtime["manyfold_thumbnails.gemspec"].replace('"0.0.0"', '"1.2.3"')
+            self.assertEqual(archive.read("manyfold_thumbnails.gemspec").decode("utf-8"), expected)
+        self.assertEqual((self.root / "manyfold_thumbnails.gemspec").read_text(encoding="utf-8"), self.runtime["manyfold_thumbnails.gemspec"])
 
     def test_upgrade_replaces_the_same_package(self):
         (self.root / "dist/old.zip").unlink()
         for version in ("0.1.0", "1.2.3"):
             result = self.run_package(version)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(list((self.root / "dist").iterdir()), [self.root / "dist/manyfold_cults3d.zip"])
-            with zipfile.ZipFile(self.root / "dist/manyfold_cults3d.zip") as archive:
-                expected = self.runtime["manyfold_cults3d.gemspec"].replace('"0.0.0"', f'"{version}"')
-                self.assertEqual(archive.read("manyfold_cults3d.gemspec").decode("utf-8"), expected)
-            self.assertEqual((self.root / "manyfold_cults3d.gemspec").read_text(encoding="utf-8"), self.runtime["manyfold_cults3d.gemspec"])
+            self.assertEqual(list((self.root / "dist").iterdir()), [self.root / "dist/manyfold_thumbnails.zip"])
+            with zipfile.ZipFile(self.root / "dist/manyfold_thumbnails.zip") as archive:
+                expected = self.runtime["manyfold_thumbnails.gemspec"].replace('"0.0.0"', f'"{version}"')
+                self.assertEqual(archive.read("manyfold_thumbnails.gemspec").decode("utf-8"), expected)
+            self.assertEqual((self.root / "manyfold_thumbnails.gemspec").read_text(encoding="utf-8"), self.runtime["manyfold_thumbnails.gemspec"])
 
     def test_invalid_versions_create_no_package(self):
         for version in ("01.2.3", "1.2", "v1.2.3", "1.2.3-beta.1", "../1.2.3", "1.2.3/other"):
@@ -74,6 +99,31 @@ class PackageTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("VERSION must be", result.stderr)
         self.assertEqual(list((self.root / "dist").iterdir()), [self.root / "dist/old.zip"])
+
+    def test_missing_binary_creates_no_package(self):
+        (self.root / "lib/manyfold_thumbnails/vendor/aarch64-unknown-linux-musl/catwalk").unlink()
+        result = self.run_package()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Run bin/vendor-catwalk", result.stderr)
+        self.assertFalse((self.root / "dist/manyfold_thumbnails.zip").exists())
+
+    def test_modified_binary_and_notices_create_no_package(self):
+        for name in ("catwalk", "LICENSE", "RUST-LICENSES.html", "THIRD_PARTY_LICENSES.html", "MUSL-COPYRIGHT", "release.json"):
+            path = f"lib/manyfold_thumbnails/vendor/x86_64-unknown-linux-musl/{name}"
+            with self.subTest(name=name):
+                self.write(path, "Changed\n")
+                result = self.run_package()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("unverified Catwalk asset", result.stderr)
+                self.assertFalse((self.root / "dist/manyfold_thumbnails.zip").exists())
+                self.write(path, self.runtime[path])
+
+    def test_nonexecutable_binary_creates_no_package(self):
+        (self.root / "lib/manyfold_thumbnails/vendor/x86_64-unknown-linux-musl/catwalk").chmod(0o644)
+        result = self.run_package()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not executable", result.stderr)
+        self.assertFalse((self.root / "dist/manyfold_thumbnails.zip").exists())
 
 
 if __name__ == "__main__":

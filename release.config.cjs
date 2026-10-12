@@ -1,14 +1,17 @@
 module.exports = {
   branches: ["main"],
+  repositoryUrl: "https://github.com/cmeister2/manyfold_thumbnails.git",
   tagFormat: "${version}",
   plugins: [
-    ["@semantic-release/commit-analyzer", { preset: "conventionalcommits" }],
-    ["@semantic-release/release-notes-generator", { preset: "conventionalcommits" }],
+    ["./bin/release-history.mjs", {
+      commitAnalyzer: { preset: "conventionalcommits" },
+      releaseNotesGenerator: { preset: "conventionalcommits" },
+    }],
     ["@semantic-release/exec", {
       prepareCmd: "python3 bin/package ${nextRelease.version}",
     }],
     ["@semantic-release/github", {
-      assets: [{ path: "dist/manyfold_cults3d.zip" }],
+      assets: [{ path: "dist/manyfold_thumbnails.zip" }],
       successCommentCondition: false,
       failCommentCondition: false,
       failTitle: false,

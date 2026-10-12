@@ -45,6 +45,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Vendor verified Catwalk binaries
+        run: bin/vendor-catwalk
       - name: Preview release
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         run: npm run release:dry-run

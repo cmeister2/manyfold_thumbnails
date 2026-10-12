@@ -1,58 +1,114 @@
-# Cults3D for Manyfold
+# Manyfold thumbnails
 
-List your purchased and downloaded free Cults3D models in Manyfold, link existing models, and sync metadata and images.
+Generate thumbnails for design files in Manyfold by invoking [Catwalk3D](https://github.com/cmeister2/catwalk3d). Manyfold stores the image as its normal `render` derivative and displays it on file pages and model cards when that file is selected as the preview. Source files are preserved.
 
-## Install
+The plugin requires **Manyfold 0.151.0 or newer**. Release ZIPs include Catwalk 2.0.0 executables for Linux x86_64 and ARM64. Thumbnail generation runs locally on the CPU, without a display server, GPU, CAD installation, or external service. The installed plugin does not download executables.
 
-Requires Manyfold 0.146.0 or newer. Importing and linking require administrator access.
+## Supported files
 
-1. Download `manyfold_cults3d.zip` from the [latest release](https://github.com/cmeister2/manyfold_cults3d/releases/latest).
-2. Upload it under **Settings > Plugins**, then restart Manyfold. Keep the ZIP filename unchanged when installing updates.
-3. Set your **Cults3D username** and **API key** under **Settings > Integrations**. Generate a key on [Cults3D](https://cults3d.com/en/api/keys).
+This is the complete extension list that can be enabled for Catwalk:
 
-See Manyfold's [plugin installation guide](https://manyfold.app/sysadmin/plugins) for plugin directory setup.
+| File family | Extensions | Thumbnail source |
+| --- | --- | --- |
+| Autodesk Inventor | `.ipt`, `.iam` | Saved embedded image; no geometry fallback. |
+| Blender | `.blend` | Catwalk prefers the saved preview, then tries supported geometry. |
+| LightBurn | `.lbrn`, `.lbrn2` | Saved preview, then supported geometry. |
+| AutoCAD drawings | `.dwg` | Saved preview, then supported geometry. |
+| FreeCAD | `.fcstd` | Saved preview, then supported geometry. |
+| Lychee | `.lys` | Saved preview, then supported geometry. |
+| Autodesk Fusion | `.f3d` | Saved embedded image; no geometry fallback. |
+| Mesh and interchange formats | `.stl`, `.obj`, `.ply`, `.off`, `.3mf`, `.amf`, `.dae`, `.3ds`, `.wrl`, `.vrml`, `.x`, `.drc`, `.fbx`, `.mdl` | Geometry rendering. |
+| CAD and building models | `.step`, `.stp`, `.stpnc`, `.p21`, `.210`, `.iges`, `.igs`, `.brep`, `.xbf`, `.ifc`, `.dxf` | Geometry rendering. |
+| Scenes and scene archives | `.gltf`, `.glb`, `.usd`, `.usda`, `.usdc`, `.usdz`, `.abc`, `.slpk` | Geometry rendering. |
+| Point clouds and geospatial data | `.pts`, `.ptx`, `.pcd`, `.las`, `.laz`, `.bpf`, `.qi`, `.sbet`, `.csd`, `.gml` | Geometry rendering. |
+| Gaussian splats | `.splat`, `.spz` | Geometry rendering. |
+| VTK datasets | `.vtk`, `.vtp`, `.vtu`, `.vtr`, `.vts`, `.vtm`, `.vti`, `.vtkhdf` | Geometry or volume rendering, depending on the data. |
+| Volumes and medical images | `.nrrd`, `.nhdr`, `.mhd`, `.mha`, `.dcm`, `.vdb` | Geometry or volume rendering, depending on the data. |
+| Other scientific datasets | `.e`, `.ex2`, `.exo`, `.g`, `.nc`, `.cdf`, `.ncdf` | Geometry or volume rendering, depending on the data. |
 
-## Use
+The list matches [the format registry](lib/manyfold_thumbnails/formats.rb). Reader subsets and limitations are documented in [Catwalk's format coverage](https://github.com/cmeister2/catwalk3d/blob/2.0.0/docs/format-coverage.md). The plugin's fixtures exercise a subset of these readers, rather than every file variant. Ordinary image thumbnails continue to use Manyfold's image handling. Fusion `.f3z` and Lychee `.lyt` are not supported by this plugin.
 
-Open **Providers > Cults3D > Import** and select **Refresh library** to load your purchased and previously downloaded free models. Refreshes update saved entries and remove ones no longer in your Cults3D library. Manyfold models and files are always kept. Failed refreshes leave the saved list unchanged.
+Catwalk produces a 512 x 512 PNG with a transparent background and a fixed camera. Its normal camera uses an isometric Z-up view; LightBurn uses the XY plane. Manyfold's per-file up-direction setting does not change that camera. Saved images can be missing, blank, or out of date, and file variants unsupported by a reader may still have no thumbnail. A thumbnail does not verify the design's geometry.
 
-**Status** shows your saved library and its links to Manyfold models. Choose **Create Model** on an unlinked entry to create a model and queue metadata and image sync. This requires a default Manyfold library.
+Relative sidecar resources, such as OBJ materials or glTF buffers, can be read when Manyfold supplies the original local path with its extension. Downloaded or extensionless sources are processed as isolated temporary files; object-storage downloads may therefore lack sidecars. Use self-contained files when those resources are needed.
 
-To link an existing Manyfold model, choose **Link to Cults3D** from its menu. Select a suggested library match with **Use this model**, or enter a Cults3D model URL, slug, or ID, then select **Link and sync**.
+By default, Catwalk handles only formats without another thumbnail provider in the running Manyfold installation. Existing F3D rendering and FreeCAD saved-preview extraction remain selected for their supported types. Enabled Catwalk formats use priority 5, above Manyfold's default model thumbnail providers. The host selects one provider per MIME type; it does not try another provider after an empty result.
 
-Sync imports the name, description, printing details, tags, license, creator, and images. Download 3D files from Cults3D and import them into Manyfold separately; the plugin cannot download them through the API.
+## Install and use
 
-On **Creators**, choose **Link to Cults3D** from a creator's menu and select one of their linked models to sync their name, bio, and avatar. The action appears when they have Cults3D-linked models and no existing Cults3D profile link.
+1. Run Manyfold 0.151.0 or newer.
+2. Download `manyfold_thumbnails.zip` from a release, or [build it locally](#development).
+3. Upload the ZIP under **Settings > Plugins**, then restart web and worker processes. Keep the ZIP filename unchanged when updating.
+4. Enable Manyfold's **Generate model renders** setting.
+
+Newly processed enabled files receive Catwalk thumbnails when their reader can produce an image. Installation leaves the render setting unchanged. That shared setting also enables Manyfold's other model thumbnail providers.
+
+Administrators can open **Thumbnail settings** in the main navigation. The format table shows every supported extension, its existing Manyfold provider, the current provider, and an **Enable Catwalk** checkbox. Extensions that share a provider are configured together. Check a core-supported type to override its provider with Catwalk, or uncheck a gap type to disable its thumbnails. The page also lists active overrides. FreeCAD is left on core by default; enabling it opts into Catwalk's saved-preview and geometry support.
+
+Settings are stored in Manyfold's database and apply to web and worker processes without restarting them. Changes affect future processing, backfill and explicit regeneration; they do not replace existing thumbnails. The plugin generates all of its thumbnails through Catwalk, including Inventor saved previews.
+
+To use a separately installed Catwalk executable, set `MANYFOLD_THUMBNAILS_CATWALK` to its absolute path in both web and worker environments. The bundled executables target Linux x86_64 and ARM64; other platforms require a compatible executable through that setting.
+
+## Existing files and regeneration
+
+Run these tasks inside the Manyfold application with the plugin loaded. With the development Compose setup, prefix commands with `docker compose exec manyfold`.
+
+```sh
+# Queue missing thumbnails for enabled Catwalk formats across all libraries.
+bundle exec rake manyfold_thumbnails:backfill
+
+# Or scope the run to library 12.
+bundle exec rake 'manyfold_thumbnails:backfill[12]'
+
+# Inspect all runs, or run 3 and its per-file outcomes.
+bundle exec rake manyfold_thumbnails:status
+bundle exec rake 'manyfold_thumbnails:status[3]'
+
+# Resume an interrupted or paused run.
+bundle exec rake 'manyfold_thumbnails:resume[3]'
+
+# Deliberately replace file 42's render.
+bundle exec rake 'manyfold_thumbnails:regenerate[42]'
+```
+
+Backfill covers enabled Catwalk extensions, including files indexed before their types were registered. Core-supported formats are excluded unless Catwalk is explicitly enabled for them. It processes one file at a time and persists scanned, generated, missing-image, skipped, and failed counts with diagnostic reasons. Existing usable renders are skipped, and successful files are not processed again when a run resumes. Model renders must be enabled when queuing and processing work.
+
+Successful generation lets Manyfold select a preview for a model that has none. Existing preview selections and collection covers are preserved. Use this task explicitly for existing files after installation; uploading the plugin does not queue a backfill.
+
+To choose a generated thumbnail manually, edit the model and select its file in the **Preview file** field.
+
+Regeneration replaces only the selected file's `render` derivative and preserves unrelated derivatives. Generation or persistence failures retain a previous usable render. Normal cached-upload promotion refreshes the render when replacing an attachment. Editing a source in place requires explicit regeneration. Successful regeneration also refreshes the file-page cache. Removing the plugin and restarting restores core handler selection; stored derivatives remain available.
+
+## Processing limits
+
+| Catwalk limit | Value |
+| --- | ---: |
+| Main source file | 512 MiB |
+| Processing deadline, including any local source copy | 60 seconds |
+| PNG output | 8 MiB |
+| Captured diagnostics | 64 KiB |
+
+The deadline terminates the Catwalk process when exceeded. Source downloads and derivative uploads occur through Manyfold outside that deadline. These bounds do not establish a peak-memory limit or a limit on the total size of local sidecar resources. Missing previews and failed readers are recorded without changing the source file.
 
 ## Development
 
-Copy `.env.example` to `.env` and set `CULTS3D_USERNAME` and `CULTS3D_API_KEY`. These environment variables override Manyfold's integration settings.
-
-Start the development instance with Docker Compose:
+Fetch the checksum-pinned Catwalk release and build a ZIP with an explicit plugin version:
 
 ```sh
-docker compose up --build -d
+python3 bin/vendor-catwalk
+python3 bin/package 0.1.0
 ```
 
-Open <http://localhost:3215>. An administrator and default library are created automatically. Data persists in the Compose volume. After code changes, run `docker compose restart manyfold`.
+The archive is written to `dist/manyfold_thumbnails.zip`; the source gemspec version is unchanged. Both architectures and the upstream license notices are included.
 
-Run plugin and package tests with Python 3 and Docker:
+Run `bin/test` with Python 3 and Docker to check thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Start the development instance with `docker compose up --build -d`, then open <http://localhost:3215>. After code changes, restart it with `docker compose restart manyfold`.
 
-```sh
-bin/test
-```
-
-Tests use disposable containers and mocked API responses. Release tooling tests require Node 24.15 or newer:
+Releases use Conventional Commits and tags named `X.Y.Z`. The original template HEAD is tagged `0.0.0`, so the first thumbnail feature commit releases as `0.1.0`. Earlier Cults3D release tags are preserved locally as `template-vX.Y.Z` and are not published as thumbnail versions. Release analysis and notes exclude history inherited from the earlier Cults3D plugin. Release tooling requires Node 24.15 or newer:
 
 ```sh
 npm ci --ignore-scripts
 npm run test:release
+npm run release:dry-run
 ```
 
-Build a plugin ZIP with an explicit version:
-
-```sh
-python3 bin/package 1.0.0
-```
-
-The archive is written to `dist/manyfold_cults3d.zip`. Releases publish automatically from `main` using Conventional Commits; `npm run release:dry-run` previews the next release.
+Release previews inspect committed changes in disposable local Git repositories and publish nothing. Uncommitted working-tree changes are not included in the preview.

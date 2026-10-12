@@ -1,7 +1,54 @@
 en:
-  manyfold_cults3d:
-    errors:
-      request_failed: "Could not get Cults3D model details."
-      sync_failed: "Could not sync the Cults3D model."
-      creator_request_failed: "Could not get the Cults3D creator profile."
-      creator_sync_failed: "Could not sync the Cults3D creator profile."
+  manyfold_thumbnails:
+    settings:
+      menu: Thumbnail settings
+      show:
+        heading: Thumbnail settings
+        description: Catwalk renders the selected file types. By default, it is enabled for types without a built-in Manyfold thumbnail provider.
+        renders_disabled: Model thumbnail generation is currently disabled in Manyfold.
+        derivatives_settings: Open Derivatives settings
+        file_types: File types
+        save: Save thumbnail settings
+        changes: Changes apply to future thumbnails and manual regeneration. Existing thumbnails are retained.
+        use_catwalk: Enable Catwalk
+        core_provider: Built-in provider
+        current_provider: Current provider
+        no_core_provider: None
+        disabled: Disabled
+        checkbox_label: "Enable Catwalk for %{extensions}"
+        aliases: Extensions on the same row use the same provider and are enabled together. Enable Catwalk to replace the built-in provider; disabling it restores that provider where available.
+        overrides:
+          none: Catwalk is not overriding any built-in thumbnail providers.
+          active: "Catwalk currently overrides:"
+      update:
+        success: Thumbnail settings saved.
+        invalid_selection: Select the file types Catwalk should render.
+  file_handlers:
+    handlers:
+      catwalk_thumbnailer: Catwalk
+  media_types:
+    ptx: PTX point cloud
+    pcd: PCD point cloud
+    vtm: VTK multiblock dataset
+    las: LAS point cloud
+    laz: Compressed LAS point cloud
+    usd: Universal Scene Description
+    usda: Universal Scene Description (text)
+    usdc: Universal Scene Description (binary)
+    usdz: Universal Scene Description archive
+    bpf: Binary Point File
+    qi: QFIT point cloud
+    sbet: SBET trajectory
+    csd: CSD point cloud
+    vtkhdf: VTK HDF dataset
+    e: Exodus II dataset
+    ex2: Exodus II dataset
+    exo: Exodus II dataset
+    g: Exodus II dataset
+    nc: NetCDF dataset
+    cdf: NetCDF dataset
+    ncdf: NetCDF dataset
+    slpk: Scene Layer Package
+    vdb: OpenVDB volume
+    lbrn: LightBurn project
+    lbrn2: LightBurn project

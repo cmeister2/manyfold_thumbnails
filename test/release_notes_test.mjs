@@ -13,13 +13,13 @@ const { analyzeCommits } = await import(pathToFileURL(
   releaseRequire.resolve("@semantic-release/commit-analyzer"),
 ).href);
 const root = fileURLToPath(new URL("../", import.meta.url));
-const repositoryUrl = "https://github.com/cmeister2/manyfold_cults3d";
-const pluginOptions = (name) => releaseConfig.plugins.find(
-  (plugin) => Array.isArray(plugin) && plugin[0] === name,
+const repositoryUrl = "https://github.com/cmeister2/manyfold_thumbnails";
+const historyOptions = releaseConfig.plugins.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === "./bin/release-history.mjs",
 )[1];
 
 test("release notes render Conventional Commits templates and links", async () => {
-  const notes = await generateNotes(pluginOptions("@semantic-release/release-notes-generator"), {
+  const notes = await generateNotes(historyOptions.releaseNotesGenerator, {
     cwd: root,
     options: { repositoryUrl },
     lastRelease: { gitTag: "1.0.0" },
@@ -27,15 +27,15 @@ test("release notes render Conventional Commits templates and links", async () =
     commits: [
       {
         hash: "1234567890123456789012345678901234567890",
-        message: "feat: add library filters",
+        message: "feat: add assembly previews",
       },
       {
         hash: "abcdef0123456789abcdef0123456789abcdef01",
-        message: "fix: repair import feedback\n\nCloses #42",
+        message: "fix: repair thumbnail extraction\n\nCloses #42",
       },
       {
         hash: "0123456789abcdef0123456789abcdef01234567",
-        message: "feat!: require an import format\n\nBREAKING CHANGE: Imports must specify their format.",
+        message: "feat!: require a supported container\n\nBREAKING CHANGE: Previews require a supported container.",
       },
     ],
   });
@@ -45,9 +45,9 @@ test("release notes render Conventional Commits templates and links", async () =
     "### Features",
     "### Bug Fixes",
     "BREAKING CHANGES",
-    "Imports must specify their format.",
-    "add library filters",
-    "repair import feedback",
+    "Previews require a supported container.",
+    "add assembly previews",
+    "repair thumbnail extraction",
     `${repositoryUrl}/issues/42`,
     `${repositoryUrl}/commit/1234567890123456789012345678901234567890`,
   ]) {
@@ -56,12 +56,12 @@ test("release notes render Conventional Commits templates and links", async () =
 });
 
 for (const [message, expected] of [
-  ["feat: add library filters", "minor"],
-  ["fix: repair import feedback", "patch"],
-  ["feat!: require an import format\n\nBREAKING CHANGE: Imports must specify their format.", "major"],
+  ["feat: add assembly previews", "minor"],
+  ["fix: repair thumbnail extraction", "patch"],
+  ["feat!: require a supported container\n\nBREAKING CHANGE: Previews require a supported container.", "major"],
 ]) {
   test(`commit analysis selects a ${expected} release`, async () => {
-    const release = await analyzeCommits(pluginOptions("@semantic-release/commit-analyzer"), {
+    const release = await analyzeCommits(historyOptions.commitAnalyzer, {
       cwd: root,
       commits: [{ hash: "1234567890123456789012345678901234567890", message }],
       logger: { log() {} },

@@ -24,10 +24,12 @@ const git = (cwd, ...args) => execFileSync("git", [
 ], { cwd, env: fixtureEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 
 async function fixture(t) {
-  const cwd = await mkdtemp(join(tmpdir(), "manyfold-cults3d-preview-test-"));
+  const cwd = await mkdtemp(join(tmpdir(), "manyfold-thumbnails-preview-test-"));
   t.after(() => rm(cwd, { recursive: true, force: true }));
   git(cwd, "init", "--quiet", "--initial-branch=main");
-  await commit(cwd, "feat: initial inventory");
+  await writeFile(join(cwd, "manyfold_thumbnails.gemspec"), "# Preview fixture plugin\n");
+  git(cwd, "add", "manyfold_thumbnails.gemspec");
+  await commit(cwd, "feat: initial thumbnail extraction");
   git(cwd, "tag", "0.1.0");
   await writeFile(join(cwd, "scratch.txt"), "Untracked local file\n");
   return cwd;
@@ -73,7 +75,7 @@ async function preview(cwd, extraEnv) {
 
 test("detached fork PR previews a feature release without credentials or checkout changes", async (t) => {
   const cwd = await fixture(t);
-  await commit(cwd, "feat: add library filters");
+  await commit(cwd, "feat: add assembly previews");
   git(cwd, "checkout", "--quiet", "--detach");
   await appendFile(join(cwd, "fixture.txt"), "Uncommitted local edit\n");
   const before = await snapshot(cwd);
@@ -96,9 +98,9 @@ test("detached fork PR previews a feature release without credentials or checkou
   assert.equal(result.nextRelease.version, "0.2.0");
   assert.equal(result.nextRelease.gitTag, "0.2.0");
   assert.match(result.nextRelease.notes, /### Features/);
-  assert.match(result.nextRelease.notes, /add library filters/);
+  assert.match(result.nextRelease.notes, /add assembly previews/);
   assert.ok(result.nextRelease.notes.includes(
-    "https://github.com/cmeister2/manyfold_cults3d/compare/0.1.0...0.2.0",
+    "https://github.com/cmeister2/manyfold_thumbnails/compare/0.1.0...0.2.0",
   ));
   assert.match(logs, /Preview complete: 0\.2\.0\. No release was published\./);
   assert.deepEqual(await snapshot(cwd), before);
@@ -116,7 +118,7 @@ test("manual branch previews honor existing tags when no release is needed", asy
     GITHUB_ACTIONS: "true",
     GITHUB_EVENT_NAME: "workflow_dispatch",
     GITHUB_REF: "refs/heads/docs/preview",
-    GITHUB_REPOSITORY: "cmeister2/manyfold_cults3d",
+    GITHUB_REPOSITORY: "cmeister2/manyfold_thumbnails",
     GITHUB_TOKEN: "invalid-test-token",
   });
 
@@ -125,3 +127,43 @@ test("manual branch previews honor existing tags when no release is needed", asy
   assert.deepEqual(await snapshot(cwd), before);
   assert.equal(git(cwd, "tag", "--list"), "0.1.0");
 });
+
+test("a zero baseline after inherited plugin history produces the first 0.1.0 thumbnail release", async (t) => {
+  const cwd = await mkdtemp(join(tmpdir(), "manyfold-thumbnails-inherited-history-"));
+  t.after(() => rm(cwd, { recursive: true, force: true }));
+  git(cwd, "init", "--quiet", "--initial-branch=main");
+  await commit(cwd, "feat: sync Cults3D models");
+  git(cwd, "tag", "template-v0.2.0");
+  await commit(cwd, "chore: update the earlier plugin dependencies");
+  git(cwd, "tag", "0.0.0");
+  const baseline = git(cwd, "rev-parse", "HEAD");
+  const inherited = await snapshotForHistory(cwd);
+
+  const beforePlugin = await preview(cwd);
+  assert.equal(beforePlugin.result, false);
+  assert.deepEqual(await snapshotForHistory(cwd), inherited);
+
+  await writeFile(join(cwd, "manyfold_thumbnails.gemspec"), "# Preview fixture plugin\n");
+  git(cwd, "add", "manyfold_thumbnails.gemspec");
+  await commit(cwd, "feat: generate Catwalk model thumbnails");
+  const before = await snapshotForHistory(cwd);
+  const { result } = await preview(cwd);
+
+  assert.equal(result.lastRelease.version, "0.0.0");
+  assert.equal(result.lastRelease.gitTag, "0.0.0");
+  assert.equal(result.nextRelease.version, "0.1.0");
+  assert.equal(result.nextRelease.gitTag, "0.1.0");
+  assert.equal(git(cwd, "rev-parse", "0.0.0^{commit}"), baseline);
+  assert.equal(result.commits.length, 1);
+  assert.match(result.nextRelease.notes, /generate Catwalk model thumbnails/);
+  assert.doesNotMatch(result.nextRelease.notes, /Cults3D/);
+  assert.deepEqual(await snapshotForHistory(cwd), before);
+});
+
+async function snapshotForHistory(cwd) {
+  return {
+    head: git(cwd, "rev-parse", "HEAD"),
+    refs: git(cwd, "for-each-ref", "--format=%(refname) %(objectname)"),
+    status: git(cwd, "status", "--porcelain=v1", "--untracked-files=all"),
+  };
+}

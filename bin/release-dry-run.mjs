@@ -4,14 +4,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import semanticRelease from "semantic-release";
-import { analyzeCommits } from "@semantic-release/commit-analyzer";
-import { generateNotes } from "@semantic-release/release-notes-generator";
+import { analyzeCommits, generateNotes } from "./release-history.mjs";
 import config from "../release.config.cjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const repositoryUrl = manifest.repository.url.replace(/^git\+/, "");
-const pluginOptions = (name) => config.plugins.find(([plugin]) => plugin === name)[1];
+const historyOptions = config.plugins.find(([plugin]) => plugin === "./bin/release-history.mjs")[1];
 
 export async function previewRelease({
   cwd = root, env = process.env, stdout = process.stdout, stderr = process.stderr,
@@ -30,7 +29,7 @@ export async function previewRelease({
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
   const head = git(cwd, "rev-parse", "HEAD");
-  const temporary = await mkdtemp(join(tmpdir(), "manyfold-cults3d-release-preview-"));
+  const temporary = await mkdtemp(join(tmpdir(), "manyfold-thumbnails-release-preview-"));
   const remote = join(temporary, "remote.git");
   const checkout = join(temporary, "checkout");
   const branch = "release-preview";
@@ -51,11 +50,11 @@ export async function previewRelease({
         [{ analyzeCommits: async (options, context) => {
           analyzed = true;
           return analyzeCommits(options, context);
-        } }, pluginOptions("@semantic-release/commit-analyzer")],
+        } }, historyOptions],
         [{ generateNotes: (options, context) => generateNotes(options, {
           ...context,
           options: { ...context.options, repositoryUrl },
-        }) }, pluginOptions("@semantic-release/release-notes-generator")],
+        }) }, historyOptions],
       ],
     }, { cwd: checkout, env: previewEnv, stdout, stderr });
     if (!analyzed) throw new Error("Release preview skipped commit analysis.");

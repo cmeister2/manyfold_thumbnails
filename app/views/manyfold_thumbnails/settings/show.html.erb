@@ -1,0 +1,61 @@
+<h3><%= t(".heading") %></h3>
+<p class="lead"><%= t(".description") %></p>
+
+<% unless SiteSettings.generate_model_renders %>
+  <p class="alert alert-info" role="status">
+    <%= t(".renders_disabled") %>
+    <%= link_to t(".derivatives_settings"), main_app.derivatives_settings_path %>
+  </p>
+<% end %>
+
+<p id="catwalk-active-overrides">
+  <% if @overridden_formats.empty? %>
+    <%= t(".overrides.none") %>
+  <% else %>
+    <%= t(".overrides.active") %>
+    <%= @overridden_formats.flat_map { |group| group[:extensions] }.map { |extension| ".#{extension}" }.join(", ") %>
+  <% end %>
+</p>
+
+<%= form_with url: manyfold_thumbnails.root_path, method: :patch do %>
+  <%= hidden_field_tag "configuration[enabled_mime_types][]", "" %>
+  <div class="table-responsive">
+    <table class="table table-striped" id="catwalk-formats">
+      <thead>
+        <tr>
+          <th scope="col"><%= t(".use_catwalk") %></th>
+          <th scope="col"><%= t(".file_types") %></th>
+          <th scope="col"><%= t(".core_provider") %></th>
+          <th scope="col"><%= t(".current_provider") %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @formats.each do |group| %>
+          <% checkbox_id = "catwalk-enabled-#{group[:extensions].first}" %>
+          <tr data-mime-type="<%= group[:mime_type] %>">
+            <td>
+              <%= check_box_tag "configuration[enabled_mime_types][]", group[:mime_type], group[:enabled],
+                id: checkbox_id, class: "form-check-input" %>
+              <%= label_tag checkbox_id, t(".checkbox_label", extensions: group[:extensions].map { |extension| ".#{extension}" }.join(", ")),
+                class: "visually-hidden" %>
+            </td>
+            <th scope="row"><%= group[:extensions].map { |extension| ".#{extension}" }.join(", ") %></th>
+            <td><%= group[:core_handler] ? ManyfoldThumbnails::Formats.handler_label(group[:core_handler]) : t(".no_core_provider") %></td>
+            <td>
+              <% if group[:enabled] %>
+                <%= t("file_handlers.handlers.catwalk_thumbnailer") %>
+              <% elsif group[:core_handler] %>
+                <%= ManyfoldThumbnails::Formats.handler_label(group[:core_handler]) %>
+              <% else %>
+                <%= t(".disabled") %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <p><%= t(".aliases") %></p>
+  <%= submit_tag t(".save"), class: "btn btn-primary" %>
+<% end %>
+<p class="mt-3"><%= t(".changes") %></p>

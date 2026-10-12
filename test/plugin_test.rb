@@ -1,354 +1,290 @@
 # frozen_string_literal: true
 
 abort "Run this test with bin/test in its disposable Manyfold container." unless
-  ENV["MANYFOLD_CULTS3D_TEST"] == "1" && defined?(Rails.application)
+  ENV["MANYFOLD_THUMBNAILS_TEST"] == "1" && defined?(Rails.application)
 
 require "minitest/autorun"
 require "action_dispatch/testing/integration"
-require "active_support/testing/time_helpers"
 require "active_job/queue_adapters/test_adapter"
 require "warden/test/helpers"
 require "nokogiri"
 require "tmpdir"
 require "fileutils"
-require "base64"
+require "stringio"
+require "digest"
+require "shrine/storage/memory"
+require_relative "support/inventor_fixture"
+require_relative "support/catwalk_fixture"
 
 ActiveJob::Base.queue_adapter = :test
 Warden.test_mode!
 
-class Cults3DPluginTest < Minitest::Test
-  include Warden::Test::Helpers
-  include ActiveSupport::Testing::TimeHelpers
-
-  IMPORT_KEY = "manyfold_cults3d_imported_at"
-  SETTINGS = %w[cults3d_api_username cults3d_api_key default_library manyfold_cults3d_imported_at].freeze
-  CREDENTIALS = %w[CULTS3D_USERNAME CULTS3D_API_KEY].freeze
-
-  def self.runnable_methods
-    super.sort
+# Minitest autorun runs after rails runner closes its execution context. Rails
+# 8.1 requires an active context for CurrentAttributes and settings caches.
+module PluginTestExecutionContext
+  def run
+    # Use perform so request middleware can open its own executor without
+    # resetting and completing this outer test executor twice.
+    Rails.application.executor.perform { super }
   end
+end
+Minitest::Test.prepend(PluginTestExecutionContext)
+
+class ThumbnailsPluginTest < Minitest::Test
+  include Warden::Test::Helpers
 
   def setup
-    @original_settings = SETTINGS.to_h do |key|
-      setting = SiteSettings.find_by(var: key)
-      [key, setting&.attributes]
-    end
-    @original_environment = CREDENTIALS.to_h { |key| [key, ENV.delete(key)] }
-    SETTINGS.each { |key| SiteSettings.find_by(var: key)&.destroy! }
-    @original_models = library_models.order(:id).map(&:attributes)
-    library_models.delete_all
-    @original_csrf = ActionController::Base.allow_forgery_protection
-    ActionController::Base.allow_forgery_protection = true
-    @library_path = Dir.mktmpdir("cults3d-status-test-")
-    @library = Library.create!(name: "Status test", path: @library_path,
+    @render_setting = SiteSettings.find_by(var: "generate_model_renders")&.attributes
+    @catwalk_setting_present = SiteSettings.exists?(var: ManyfoldThumbnails::Configuration::SETTING_KEY)
+    @catwalk_enabled_types = ManyfoldThumbnails::Configuration.enabled_mime_types
+    ManyfoldThumbnails::Configuration.reset!
+    SiteSettings.generate_model_renders = true
+    @directory = Dir.mktmpdir("thumbnails-integration-")
+    @library = Library.create!(name: "Inventor preview test", path: @directory,
       storage_service: "filesystem", path_template: "{creator}/{modelName}")
+    @model = Model.create!(name: "Generated Inventor fixture", path: "model", library: @library,
+      permission_preset: :private)
     @users = [:administrator, :member].map do |role|
-      identifier = SecureRandom.hex(8)
-      User.create!(username: "status-#{identifier}", email: "#{identifier}@example.invalid",
+      token = SecureRandom.hex(8)
+      User.create!(username: "preview-#{token}", email: "#{token}@example.invalid",
         password: "Local-test-#{SecureRandom.hex(16)}", approved: true).tap { |user| user.add_role(role) }
     end
+    ActiveJob::Base.queue_adapter.enqueued_jobs.clear
   end
 
   def teardown
     Warden.test_reset!
-    @users&.each { |user| user.destroy! }
     @library&.destroy!
-    @original_settings.each do |key, attributes|
-      SiteSettings.find_by(var: key)&.destroy!
-      SiteSettings.create!(attributes) if attributes
+    @object_library&.destroy!
+    @users&.each(&:destroy!)
+    ModelFileUploader.storages.delete(@library.storage_key) if @library
+    ModelFileUploader.storages.delete(@object_library.storage_key) if @object_library
+    SiteSettings.find_by(var: "generate_model_renders")&.destroy!
+    SiteSettings.create!(@render_setting) if @render_setting
+    if @catwalk_setting_present
+      ManyfoldThumbnails::Configuration.update!(enabled_mime_types: @catwalk_enabled_types)
+    else
+      ManyfoldThumbnails::Configuration.reset!
     end
-    @original_environment.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
-    library_models.delete_all
-    @original_models&.each { |attributes| library_models.create!(attributes) }
-    ActionController::Base.allow_forgery_protection = @original_csrf
-    FileUtils.remove_entry(@library_path) if @library_path && File.exist?(@library_path)
+    FileUtils.remove_entry(@directory) if @directory && File.exist?(@directory)
+    ActiveJob::Base.queue_adapter.enqueued_jobs.clear
   end
 
-  def test_real_host_navigation_for_both_roles_and_mount_prefixes
-    assert_kind_of Rails::Engine, ManyfoldCults3d::Engine.instance
-    expected_version = ENV["MANYFOLD_CULTS3D_EXPECTED_VERSION"]
-    assert_equal expected_version, PluginManager.all.fetch("manyfold_cults3d").version.to_s if expected_version.present?
-    assert_includes PluginManager.components_for(:navbar), Manyfold::ProviderMenu::Dropdown
-    assert_includes PluginManager.components_for(:provider_menu), Components::ManyfoldCults3d::ProviderMenuItem
-    @users.each do |user|
-      [nil, "", "   ", "fictional-api-key"].each { |key| assert_navigation(user, key) }
+  def test_engine_startup_discovers_the_handler_and_scopes_dispatch
+    assert_kind_of Rails::Engine, ManyfoldThumbnails::Engine.instance
+    expected = ENV["MANYFOLD_THUMBNAILS_EXPECTED_VERSION"]
+    assert_equal expected, PluginManager.all.fetch("manyfold_thumbnails").version.to_s if expected.present?
+    assert FileHandlers::ALL_HANDLERS.frozen?
+    assert_includes FileHandlers::ALL_HANDLERS, FileHandlers::CatwalkThumbnailer
+    refute FileHandlers::ALL_HANDLERS.any? { |handler| handler.name == "FileHandlers::InventorThumbnailExtractor" }
+    [:ipt, :iam].each do |extension|
+      assert_equal FileHandlers::CatwalkThumbnailer,
+        FileHandlers.handlers_for(environment: :thumbnail, mime_type: Mime[extension]).first
     end
-    [nil, "fictional-api-key"].each { |key| assert_navigation(@users.first, key, script_name: "/manyfold") }
+    refute_includes FileHandlers.handlers_for(environment: :thumbnail, mime_type: Mime[:png]),
+      FileHandlers::CatwalkThumbnailer
+    refute_includes FileHandlers.handlers_for(environment: :browser, mime_type: Mime[:ipt]),
+      FileHandlers::CatwalkThumbnailer
   end
 
-  def test_import_refreshes_the_api_library_without_accepting_pasted_json
-    configure_api
-    ["", "/manyfold"].each do |prefix|
-      session = browser(@users.first)
-      form = import_form(session, prefix)
-      assert_empty form.css("textarea")
-      submit = form.at_css('input[type="submit"], button[type="submit"]')
-      assert_equal "Refresh library", submit["value"] || submit.text.strip
-      client = FakeLibraryClient.new([model_entry(2001, name: "<example> & \u00e9")])
-      with_api_client(client) { post_refresh(session, form, prefix) }
-      assert_equal 1, client.calls
-      assert_equal 303, session.response.status
-      assert_equal "1 model imported.", session.request.flash[:notice]
-      assert_equal "#{session.request.base_url}#{prefix}/manyfold_cults3d/", session.response.location
-      assert_equal "<example> & \u00e9", library_models.find_by!(cults3d_id: creation_identifier(2001)).name
-      assert_equal 1, library_models.count
-      assert_status_summary(session, 1, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at), prefix)
+  def test_normal_background_promotion_generates_png_without_changing_source
+    [:ipt, :iam].each do |extension|
+      file, source = ingest(filename: "fixture.#{extension}")
+      assert file.has_render?
+      render = file.attachment_derivatives.fetch(:render)
+      assert_equal @library.storage_key, render.storage_key
+      assert_equal "image/png", render.mime_type
+      assert_equal [512, 512], render.read.byteslice(16, 8).unpack("NN")
+      assert_equal source, file.attachment.read
+      assert_equal Digest::SHA256.hexdigest(source),
+        Digest::SHA256.file(File.join(@directory, @model.path, file.filename)).hexdigest
+      assert_empty file.attachment_derivatives.keys - [:render]
     end
   end
 
-  def test_import_requires_admin_and_csrf_before_requesting_the_api
-    configure_api
+  def test_catwalk_generates_drawing_and_point_cloud_renders_on_normal_promotion
+    {"drawing.LBRN2" => CatwalkFixture::LIGHTBURN,
+     "cloud.pcd" => CatwalkFixture::PCD}.each do |filename, source|
+      file, = ingest(filename: filename, source: source)
+      assert_equal FileHandlers::CatwalkThumbnailer,
+        FileHandlers.handlers_for(environment: :thumbnail, mime_type: file.mime_type).first
+      assert file.is_3d_model?
+      assert file.has_render?, "#{filename} should have a Catwalk render."
+      render = file.attachment(:render)
+      assert_equal "image/png", render.mime_type
+      assert_equal [512, 512], render.read.byteslice(16, 8).unpack("NN")
+      assert_equal source, file.attachment.read
+    end
+  end
+
+  def test_catwalk_render_appears_on_the_lightburn_file_page_and_model_card
+    file, = ingest(filename: "drawing.lbrn2", source: CatwalkFixture::LIGHTBURN)
+    @model.update!(preview_file: file)
     session = browser(@users.first)
-    form = import_form(session)
-    client = FakeLibraryClient.new([model_entry(4001)])
-    with_api_client(client) do
-      session.post("/manyfold_cults3d/import", headers: {"HTTP_ORIGIN" => session.request.base_url})
-      assert_equal 422, session.response.status
-      assert_equal 0, client.calls
-      assert_empty library_models.all
-      assert_nil SiteSettings.manyfold_cults3d_imported_at
-      post_refresh(session, form)
-      assert_equal 303, session.response.status
-      session = browser(@users.last)
-      session.get("/manyfold_cults3d/")
-      document = Nokogiri::HTML(session.response.body)
-      assert_nil document.at_css('#cults3d-tabs a[href$="/import"]')
-      token = document.at_css('meta[name="csrf-token"]')["content"]
-      origin = session.request.base_url
-      session.get("/manyfold_cults3d/import")
-      assert_equal 404, session.response.status
-      session.post("/manyfold_cults3d/import", params: {authenticity_token: token}, headers: {"HTTP_ORIGIN" => origin})
-      assert_equal 404, session.response.status
-      assert_equal 1, client.calls
-      assert_equal [creation_identifier(4001)], library_models.pluck(:cults3d_id)
-    end
+    route = Rails.application.routes.url_helpers.model_model_file_path(@model, file,
+      format: file.extension, derivative: "render")
+    session.get(Rails.application.routes.url_helpers.model_model_file_path(@model, file))
+    assert_equal 200, session.response.status
+    assert Nokogiri::HTML(session.response.body).at_css("img[src='#{route}']")
+    session.get("/models")
+    assert_equal 200, session.response.status
+    assert Nokogiri::HTML(session.response.body).at_css("img[src='#{route}']")
+    session.get(route)
+    assert_equal 200, session.response.status
+    assert_equal "image/png", session.response.media_type
+    assert_equal file.attachment(:render).read, session.response.body.b
   end
 
-  def test_failed_refresh_preserves_rows_and_last_successful_import_time
-    configure_api
-    with_refresh_native_models(5001, 5004) do |models, session|
-      rows_before = library_models.order(:id).map(&:attributes)
-      native_before = refresh_native_snapshot(models)
-      imported_at = SiteSettings.manyfold_cults3d_imported_at
-      invalid = model_entry(5003, name: "   ")
-      failures = [FakeLibraryClient.new([model_entry(5002), invalid]), FakeLibraryClient.new(nil),
-        FakeLibraryClient.new(ManyfoldCults3d::ApiClient::Error.new("Fictional API failure."))]
-      failures.each do |client|
-        form = import_form(session)
-        with_api_client(client) { post_refresh(session, form) }
-        assert_equal 422, session.response.status
-        assert_equal rows_before, library_models.order(:id).map(&:attributes)
-        assert_equal native_before, refresh_native_snapshot(models)
-        assert_equal imported_at, SiteSettings.manyfold_cults3d_imported_at
-        refute_nil Nokogiri::HTML(session.response.body).at_css('form[action$="/import"]')
-      end
-    end
+  def test_catwalk_failure_leaves_ingestion_usable_and_render_setting_controls_dispatch
+    file, source = ingest(filename: "broken.pcd", source: "invalid point cloud")
+    refute file.has_render?
+    assert_equal source, file.attachment.read
+    SiteSettings.generate_model_renders = false
+    file, source = ingest(filename: "disabled.lbrn2", source: CatwalkFixture::LIGHTBURN)
+    refute file.has_render?
+    assert_equal source, file.attachment.read
+    file.attachment.rewind
+    SiteSettings.generate_model_renders = true
+    file.check_derivatives!
+    assert file.reload.has_render?
   end
 
-  def test_import_updates_existing_rows_removes_absent_entries_and_deduplicates_orders
-    configure_api
+  def test_render_setting_prevents_automatic_extraction
+    SiteSettings.generate_model_renders = false
+    file, source = ingest
+    assert_empty file.attachment_derivatives
+    refute file.has_render?
+    assert_equal source, file.attachment.read
+    file.attachment.rewind
+    SiteSettings.generate_model_renders = true
+    file.check_derivatives!
+    assert file.reload.has_render?
+  end
+
+  def test_missing_thumbnail_leaves_ingestion_usable
+    source = InventorFixture.compound(streams: {"UFRxDoc" => "no preview"})
+    file, = ingest(source: source)
+    assert_empty file.attachment_derivatives
+    assert_equal source, file.attachment.read
+  end
+
+  def test_existing_views_and_derivative_route_obey_model_permissions
+    file, = ingest
+    @model.update!(preview_file: file)
     session = browser(@users.first)
-    form = import_form(session)
-    with_api_client(FakeLibraryClient.new([model_entry(6001), model_entry(6002)])) { post_refresh(session, form) }
-    original_id = library_models.find_by!(cults3d_id: creation_identifier(6001)).id
-    updated = model_entry(6001, name: "Updated example model", added_at: "2025-02-01T12:00:00Z")
-    updated.fetch("lines").first.fetch("creation")["tags"] = ["updated"]
-    first_import = Time.current.utc.change(usec: 0)
-    [first_import, first_import + 60].each do |imported_at|
-      form = import_form(session)
-      travel_to(imported_at) do
-        with_api_client(FakeLibraryClient.new([updated, updated])) { post_refresh(session, form) }
-      end
-      assert_equal 303, session.response.status
-      assert_equal "1 model imported.", session.request.flash[:notice]
-      assert_equal 1, library_models.count
-      refreshed = library_models.find_by!(cults3d_id: creation_identifier(6001))
-      assert_equal original_id, refreshed.id
-      assert_equal "Updated example model", refreshed.name
-      assert_equal ["updated"], refreshed.tags
-      assert_equal Time.utc(2025, 2, 1, 12), refreshed.library_added_at
-      refute library_models.exists?(cults3d_id: creation_identifier(6002))
-      assert_equal imported_at, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at)
-      assert_status_summary(session, 1, imported_at)
-    end
+    route = Rails.application.routes.url_helpers.model_model_file_path(@model, file,
+      format: file.extension, derivative: "render")
+    session.get(Rails.application.routes.url_helpers.model_model_file_path(@model, file))
+    assert_equal 200, session.response.status
+    assert Nokogiri::HTML(session.response.body).at_css("img[src='#{route}']"), "File page should display the render."
+    session.get("/models")
+    assert_equal 200, session.response.status
+    assert Nokogiri::HTML(session.response.body).at_css("img[src='#{route}']"), "Model card should display the chosen preview."
+    session.get(route)
+    assert_equal 200, session.response.status
+    assert_equal "image/png", session.response.media_type
+    assert_equal file.attachment_derivatives.fetch(:render).read, session.response.body.b
+
+    denied = browser(@users.last)
+    denied.get(route)
+    assert_equal 404, denied.response.status
+    refute_equal file.attachment_derivatives.fetch(:render).read, denied.response.body.b
+    @model.grant_permission_to("view", @users.last)
+    allowed = browser(@users.last)
+    allowed.get(route)
+    assert_equal 200, allowed.response.status
+    assert_equal "image/png", allowed.response.media_type
   end
 
-  def test_refresh_removes_absent_entries_and_preserves_created_and_linked_native_models
-    configure_api
-    with_refresh_native_models(7201, 7202) do |models, session|
-      save_status_examples([model_entry(7203)])
-      retained_id = library_models.find_by!(cults3d_id: creation_identifier(7203)).id
-      native_before = refresh_native_snapshot(models)
-      form = import_form(session)
-      client = FakeLibraryClient.new([model_entry(7203, name: "Updated retained entry"), model_entry(7204)])
-      with_api_client(client) { post_refresh(session, form) }
-      assert_equal 303, session.response.status
-      assert_equal "2 models imported.", session.request.flash[:notice]
-      assert_equal [7203, 7204].map { |id| creation_identifier(id) }.sort, library_models.pluck(:cults3d_id).sort
-      assert_equal retained_id, library_models.find_by!(cults3d_id: creation_identifier(7203)).id
-      assert_equal "Updated retained entry", library_models.find_by!(cults3d_id: creation_identifier(7203)).name
-      assert_equal native_before, refresh_native_snapshot(models)
-      assert_status_summary(session, 2, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at))
-    end
+  def test_replacing_attachment_refreshes_render_but_editing_source_in_place_does_not
+    file, = ingest
+    old_image = file.attachment_derivatives.fetch(:render).read
+    new_image = InventorFixture.png(color: [0, 255, 0, 255])
+    replacement = InventorFixture.compound(streams: {"\u0005preview" => InventorFixture.property_set(image: new_image)})
+    file.attachment = cached_upload(replacement, file.filename)
+    file.save!
+    promote(file)
+    refreshed_render = file.reload.attachment_derivatives.fetch(:render).read
+    assert_equal [512, 512], refreshed_render.byteslice(16, 8).unpack("NN")
+    refute_equal old_image, refreshed_render
+
+    File.binwrite(File.join(@directory, @model.path, file.filename),
+      InventorFixture.compound(streams: {"\u0005preview" => InventorFixture.property_set(image: old_image)}))
+    file.check_derivatives!
+    assert_equal refreshed_render, file.reload.attachment_derivatives.fetch(:render).read
   end
 
-  def test_empty_refresh_removes_all_entries_and_preserves_created_and_linked_native_models
-    configure_api
-    with_refresh_native_models(7001, 7002) do |models, session|
-      native_before = refresh_native_snapshot(models)
-      form = import_form(session)
-      with_api_client(FakeLibraryClient.new([])) { post_refresh(session, form) }
-      assert_equal 303, session.response.status
-      assert_equal "0 models imported.", session.request.flash[:notice]
-      assert_empty library_models.all
-      assert_equal native_before, refresh_native_snapshot(models)
-      assert_status_summary(session, 0, Time.iso8601(SiteSettings.manyfold_cults3d_imported_at))
-    end
+  def test_regeneration_changes_the_file_page_etag
+    file, = ingest
+    session = browser(@users.first)
+    page = Rails.application.routes.url_helpers.model_model_file_path(@model, file)
+    session.get(page)
+    assert_equal 200, session.response.status
+    etag = session.response.headers.fetch("ETag")
+    session.get(page, headers: {"HTTP_IF_NONE_MATCH" => etag})
+    assert_equal 304, session.response.status
+
+    old_id = file.attachment(:render).id
+    result = ManyfoldThumbnails::Render.new(record: file, regenerate: true).call
+    assert_equal :generated, result.outcome
+    refute_equal old_id, file.reload.attachment(:render).id
+    session.get(page, headers: {"HTTP_IF_NONE_MATCH" => etag})
+    assert_equal 200, session.response.status
+    refute_equal etag, session.response.headers.fetch("ETag")
   end
 
-  def test_refresh_rolls_back_upserts_and_removals_when_a_database_delete_fails
-    configure_api
-    with_refresh_native_models(7401, 7402) do |models, session|
-      save_status_examples([model_entry(7403)])
-      rows_before = library_models.order(:id).map(&:attributes)
-      native_before = refresh_native_snapshot(models)
-      imported_at = SiteSettings.manyfold_cults3d_imported_at
-      form = import_form(session)
-      deletion_results = []
-      client = FakeLibraryClient.new([model_entry(7403, name: "Updated retained entry"), model_entry(7404)])
-      with_library_delete_failure(deletion_results, creation_identifier(7404)) do
-        with_api_client(client) { post_refresh(session, form) }
-      end
-      assert_equal 422, session.response.status
-      assert_equal [[2, true]], deletion_results, "The injected failure did not occur after upserts and removals."
-      assert_equal rows_before, library_models.order(:id).map(&:attributes)
-      assert_equal native_before, refresh_native_snapshot(models)
-      assert_equal imported_at, SiteSettings.manyfold_cults3d_imported_at
-      refute library_models.exists?(cults3d_id: creation_identifier(7404))
-      assert_includes session.request.flash[:alert], "Your saved library has not changed."
+  def test_remote_storage_streams_work_through_shrine_local_download
+    @object_library = Library.create!(name: "Object storage adapter test", storage_service: "s3",
+      path: "fictional-object-library",
+      s3_bucket: "fictional-local-test-bucket", s3_region: "eu-west-2",
+      s3_access_key_id: "fictional-key", s3_secret_access_key: "fictional-secret",
+      path_template: "{creator}/{modelName}")
+    memory = Shrine::Storage::Memory.new
+    resolvers = ModelFileUploader.opts.fetch(:dynamic_storage).fetch(:resolvers)
+    resolver_key = resolvers.keys.find { |pattern| @object_library.storage_key.to_s.match?(pattern) }
+    original_resolver = resolvers.fetch(resolver_key)
+    object_library_id = @object_library.id
+    resolvers[resolver_key] = lambda do |match|
+      (match[1].to_i == object_library_id) ? memory : original_resolver.call(match)
     end
-  end
+    model = Model.create!(name: "Remote Inventor fixture", path: "remote-model", library: @object_library)
+    file, source = ingest(model: model)
+    render = file.attachment_derivatives.fetch(:render)
+    assert_equal @object_library.storage_key, render.storage_key
+    assert_equal [512, 512], render.read.byteslice(16, 8).unpack("NN")
+    assert_equal source, file.attachment.read
+    assert memory.exists?(render.id)
+    assert memory.exists?(file.attachment.id)
 
-  def test_refresh_requires_both_credentials_without_changing_saved_rows
-    save_status_examples([model_entry(7101)])
-    rows_before = library_models.order(:id).map(&:attributes)
-    imported_at = SiteSettings.manyfold_cults3d_imported_at
-    [[nil, "fictional-api-key"], ["fictional-user", nil]].each do |username, key|
-      configure_api(key, username)
-      session = browser(@users.first)
-      form = import_form(session)
-      assert form.at_css('input[type="submit"]')["disabled"]
-      post_refresh(session, form)
-      assert_equal 422, session.response.status
-      assert_equal rows_before, library_models.order(:id).map(&:attributes)
-      assert_equal imported_at, SiteSettings.manyfold_cults3d_imported_at
-    end
-  end
-
-  class FakeLibraryClient
-    attr_reader :calls
-
-    def initialize(result)
-      @result = result
-      @calls = 0
-    end
-
-    def library
-      @calls += 1
-      raise @result if @result.is_a?(Exception)
-      Marshal.load(Marshal.dump(@result))
-    end
+    drawing, drawing_source = ingest(model: model, filename: "remote.lbrn2", source: CatwalkFixture::LIGHTBURN)
+    render = drawing.attachment(:render)
+    assert_equal @object_library.storage_key, render.storage_key
+    assert_equal [512, 512], render.read.byteslice(16, 8).unpack("NN")
+    assert_equal drawing_source, drawing.attachment.read
+    assert memory.exists?(render.id)
+  ensure
+    resolvers[resolver_key] = original_resolver if original_resolver
   end
 
   private
 
-  def configure_api(key = "fictional-api-key", username = "fictional-user")
-    SiteSettings.cults3d_api_username = username
-    SiteSettings.cults3d_api_key = key
+  def ingest(filename: "fixture.ipt", source: nil, model: @model)
+    image = InventorFixture.png
+    source ||= InventorFixture.compound(streams: {"\u0005preview" => InventorFixture.property_set(image: image)})
+    file = model.model_files.create!(filename: filename, attachment: cached_upload(source, filename))
+    assert ActiveJob::Base.queue_adapter.enqueued_jobs.any? { |job| job[:job] == FilePromoteJob },
+      "Ingestion should schedule the normal promotion job."
+    promote(file)
+    [file.reload, source, image]
   end
 
-  def library_models
-    ManyfoldCults3d::LibraryModel
+  def cached_upload(source, filename)
+    ModelFileUploader.upload(StringIO.new(source), :cache, metadata: {"filename" => filename})
   end
 
-  def creation_identifier(id)
-    Base64.strict_encode64("Creation/#{id}").delete("=")
-  end
-
-  def creation_slug(id)
-    "fictional-model-#{id}"
-  end
-
-  # Fictional data only, matching the GraphQL order/line/creation nesting.
-  def model_entry(id, name: "Example model #{id}", added_at: "2025-01-01T12:00:00Z")
-    {"id" => "fictional-order-#{id}", "createdAt" => added_at,
-      "lines" => [{"id" => "fictional-line-#{id}", "downloadUrl" => nil,
-        "creation" => {"identifier" => creation_identifier(id), "slug" => creation_slug(id),
-          "url" => "https://cults3d.com/en/3d-model/art/#{creation_slug(id)}", "name" => name,
-          "tags" => ["example", "test"], "creator" => {"nick" => "example-creator"}}}]}
-  end
-
-  def with_refresh_native_models(created_id, linked_id)
-    SiteSettings.default_library = @library.id
-    save_status_examples([model_entry(created_id), model_entry(linked_id)])
-    with_created_status_models do
-      with_native_model(name: "Existing locally imported model") do |existing|
-        session = browser(@users.first)
-        entry = library_models.find_by!(cults3d_id: creation_identifier(created_id))
-        form = status_create_form(session, entry)
-        post_status_create(session, entry, form)
-        assert_equal 303, session.response.status
-        created = entry.reload.model
-        refute_nil created
-        assert_equal created.id, entry.model_id
-        created.links.create!(url: entry.url)
-        existing.links.create!(url: library_models.find_by!(cults3d_id: creation_identifier(linked_id)).url)
-        models = [created, existing]
-        downloads = []
-        with_status_image_download(downloads) do
-          models.each do |model|
-            model.create_or_update_file_from_url(url: "https://example.invalid/fictional-preview.png",
-              filename: "fictional-preview.png")
-            model.reload
-            FileUtils.mkdir_p(File.join(@library_path, model.path))
-            File.binwrite(File.join(@library_path, model.path, "fictional-local-file.txt"), "Fictional local model notes.\n")
-            model.model_files.create!(filename: "fictional-local-file.txt")
-          end
-        end
-        assert_equal 2, downloads.size
-        yield models, session
-      end
-    end
-  end
-
-  def refresh_native_snapshot(models)
-    models.to_h do |model|
-      model.reload
-      links = model.links.order(:id).map(&:attributes)
-      files = model.model_files.order(:id).map do |file|
-        refute_nil file.attachment
-        assert file.attachment.exists?, "Refresh removed the file attachment for #{file.filename}."
-        [file.attributes, File.binread(File.join(model.library.path, model.path, file.filename))]
-      end
-      assert_equal 1, links.length
-      assert_equal 2, files.length
-      [model.id, [model.attributes, links, files, model.owners.order(:id).pluck(:id)]]
-    end
-  end
-
-  def with_library_delete_failure(deletion_results, new_identifier)
-    relation_class = ActiveRecord::Relation
-    original_delete = relation_class.instance_method(:delete_all)
-    imported_class = library_models
-    relation_class.send(:define_method, :delete_all) do
-      next original_delete.bind_call(self) unless klass == imported_class
-      result = original_delete.bind_call(self)
-      deletion_results << [result, imported_class.exists?(cults3d_id: new_identifier)]
-      raise ActiveRecord::StatementInvalid, "Fictional database delete failure."
-    end
-    yield
-  ensure
-    relation_class.send(:define_method, :delete_all, original_delete) if original_delete
+  def promote(file)
+    FilePromoteJob.perform_now(ModelFileUploader::Attacher.name, ModelFile.name,
+      file.id, "attachment", file.attachment.data)
   end
 
   def browser(user)
@@ -358,65 +294,6 @@ class Cults3DPluginTest < Minitest::Test
       session.host!(PublicUrl.hostname)
       session.https! if Rails.application.config.assume_ssl
     end
-  end
-
-  def import_form(session, prefix = "")
-    session.get("/manyfold_cults3d/import", env: {"SCRIPT_NAME" => prefix})
-    assert_equal 200, session.response.status
-    form = Nokogiri::HTML(session.response.body).at_css('form[action$="/import"]')
-    refute_nil form
-    assert_equal "#{prefix}/manyfold_cults3d/import", form["action"]
-    form
-  end
-
-  def post_refresh(session, form, prefix = "")
-    native_ids = ::Model.order(:id).pluck(:id)
-    token = form.at_css('input[name="authenticity_token"]')["value"]
-    session.post("/manyfold_cults3d/import", params: {authenticity_token: token},
-      env: {"SCRIPT_NAME" => prefix}, headers: {"HTTP_ORIGIN" => session.request.base_url})
-    assert_equal native_ids, ::Model.order(:id).pluck(:id), "Import changed native Manyfold models."
-  end
-
-  def with_api_client(client)
-    singleton = ManyfoldCults3d::ApiClient.singleton_class
-    original = ManyfoldCults3d::ApiClient.method(:new)
-    own_constructor = singleton.instance_methods(false).include?(:new)
-    singleton.send(:define_method, :new) { |*arguments, **options, &block| client }
-    yield
-  ensure
-    own_constructor ? singleton.send(:define_method, :new, original) : singleton.send(:remove_method, :new)
-  end
-
-  def assert_status_summary(session, count, imported_at, prefix = "")
-    document = status_document(session, prefix)
-    assert_equal ["#{count} models in database", "Imported at #{imported_at.strftime('%Y-%m-%d %H:%M:%S %Z')}"],
-      document.css("#cults3d-import-summary p").map { |paragraph| paragraph.text.strip }
-    assert_equal count, document.css("#cults3d-models tbody tr").size
-  end
-
-  def assert_navigation(user, key, script_name: "")
-    configure_api(key)
-    session = browser(user)
-    environment = {"SCRIPT_NAME" => script_name}
-    session.get("/models", env: environment)
-    assert_equal 200, session.response.status
-    document = Nokogiri::HTML(session.response.body)
-    toggle = document.at_css("#main-navbar #nav-link-providers")
-    refute_nil toggle
-    assert_equal "Providers", toggle.text.strip
-    assert_equal "dropdown", toggle["data-bs-toggle"]
-    assert_equal "providers-menu", toggle["aria-controls"]
-    refute_nil toggle.at_css(".bi-plug")
-    assert_equal ["Cults3D"], document.css("#providers-menu a.dropdown-item").map { |link| link.text.strip }
-    link = document.at_css("#providers-menu a.dropdown-item")
-    assert_equal "#{script_name}/manyfold_cults3d", link["href"].delete_suffix("/")
-    refute_nil link.at_css(".bi-box-seam")
-    session.get(link["href"].delete_prefix(script_name), env: environment)
-    assert_equal 200, session.response.status
-    document = Nokogiri::HTML(session.response.body)
-    hrefs = document.css("#main-navbar a[href]").map { |item| item["href"] }
-    assert_includes hrefs, "#{script_name}/dashboard"
-    assert_includes hrefs, "#{script_name}/models"
   end
 end
 

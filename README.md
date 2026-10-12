@@ -4,6 +4,23 @@ Generate thumbnails for design files in Manyfold by invoking [Catwalk3D](https:/
 
 The plugin requires **Manyfold 0.151.0 or newer**. It downloads the pinned Catwalk 2.0.0 release from GitHub for Linux x86_64 or ARM64 when an enabled file first needs a thumbnail. The archive and extracted files are verified against SHA-256 checksums shipped with the plugin. Later thumbnails reuse the downloaded executable. Rendering runs locally on the CPU, without a display server, GPU, CAD installation, or external rendering service.
 
+## Examples
+
+These are actual 512 × 512 Catwalk thumbnails. The Lychee example comes from an existing Manyfold library. Inventor and Fusion demonstrate saved-preview extraction using authored fixtures; the LightBurn examples render project geometry.
+
+| Lychee · `.lys` | LightBurn · `.lbrn2` |
+| :---: | :---: |
+| <img src="docs/examples/lychee-avacyn-bust.png" width="240" alt="Avacyn Bust with print supports, from a Lychee file"> | <img src="docs/examples/lightburn-project.png" width="240" alt="Butterfly outlines rendered from a LightBurn project"> |
+| Avacyn Bust | Butterfly drawing |
+| **Inventor part · `.ipt`** | **Inventor assembly · `.iam`** |
+| <img src="docs/examples/inventor-part.png" width="240" alt="Gear saved preview extracted from an authored Inventor part fixture"> | <img src="docs/examples/inventor-assembly.png" width="240" alt="Two-gear saved preview extracted from an authored Inventor assembly fixture"> |
+| Saved-preview fixture | Saved-preview fixture |
+| **LightBurn · `.lbrn`** | **Fusion · `.f3d`** |
+| <img src="docs/examples/lightburn-legacy.png" width="240" alt="Coloured curves and shapes rendered from a legacy LightBurn project"> | <img src="docs/examples/fusion-saved-preview.png" width="240" alt="Coloured triangle saved preview extracted from an authored Fusion fixture"> |
+| Curves and shapes | Saved-preview fixture |
+
+See [example sources and credits](docs/examples/README.md).
+
 ## Supported files
 
 This is the complete extension list that can be enabled for Catwalk:

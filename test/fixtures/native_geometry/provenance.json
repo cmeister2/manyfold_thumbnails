@@ -1,0 +1,73 @@
+[
+  {
+    "repository": "roshbeng/opcua_fusion_test_servers_and_hardware",
+    "revision": "d9ab21ced0a26e09a213a218249ac1938340bae6",
+    "path": "CAD models/conveyor_model/conveyor_model_v1/box.ipt",
+    "url": "https://raw.githubusercontent.com/roshbeng/opcua_fusion_test_servers_and_hardware/d9ab21ced0a26e09a213a218249ac1938340bae6/CAD%20models/conveyor_model/conveyor_model_v1/box.ipt",
+    "bytes": 75264,
+    "git_sha": "affb11c7ce52977b52bfb349106cbeb2fdda9712",
+    "sha256": "59829490a42a4391027f42ef8b0ba321ba8fa023a011b06c646fdedee41f1965",
+    "file": "conveyor/box.ipt",
+    "license": "MIT",
+    "license_file": "LICENSE-roshbeng.txt"
+  },
+  {
+    "repository": "roshbeng/opcua_fusion_test_servers_and_hardware",
+    "revision": "d9ab21ced0a26e09a213a218249ac1938340bae6",
+    "path": "CAD models/conveyor_model/conveyor_model_v1/part.ipt",
+    "url": "https://raw.githubusercontent.com/roshbeng/opcua_fusion_test_servers_and_hardware/d9ab21ced0a26e09a213a218249ac1938340bae6/CAD%20models/conveyor_model/conveyor_model_v1/part.ipt",
+    "bytes": 92160,
+    "git_sha": "c47107dbf18ab06f7a3a68fe3805fae714bced98",
+    "sha256": "72aee9aa6f6f40f926ef4b043ffabd38767a5f14e48cb20fea57f2a20d4aa427",
+    "file": "conveyor/part.ipt",
+    "license": "MIT",
+    "license_file": "LICENSE-roshbeng.txt"
+  },
+  {
+    "repository": "roshbeng/opcua_fusion_test_servers_and_hardware",
+    "revision": "d9ab21ced0a26e09a213a218249ac1938340bae6",
+    "path": "CAD models/conveyor_model/conveyor_model_v1/rail.ipt",
+    "url": "https://raw.githubusercontent.com/roshbeng/opcua_fusion_test_servers_and_hardware/d9ab21ced0a26e09a213a218249ac1938340bae6/CAD%20models/conveyor_model/conveyor_model_v1/rail.ipt",
+    "bytes": 238592,
+    "git_sha": "f9dd400502156ac6e22b5cbb25fd921e21ca3da0",
+    "sha256": "83cc80e7be6475e0ea25dead62e184234e03e1b1793c02400deb1c6b033b2a46",
+    "file": "conveyor/rail.ipt",
+    "license": "MIT",
+    "license_file": "LICENSE-roshbeng.txt"
+  },
+  {
+    "repository": "roshbeng/opcua_fusion_test_servers_and_hardware",
+    "revision": "d9ab21ced0a26e09a213a218249ac1938340bae6",
+    "path": "CAD models/conveyor_model/conveyor_model_v1/support.ipt",
+    "url": "https://raw.githubusercontent.com/roshbeng/opcua_fusion_test_servers_and_hardware/d9ab21ced0a26e09a213a218249ac1938340bae6/CAD%20models/conveyor_model/conveyor_model_v1/support.ipt",
+    "bytes": 144384,
+    "git_sha": "dcfe9db9f7d9563e46d9c6196bfc482da33ae3b4",
+    "sha256": "586f196475c215347b4002106c11a790bfd8ebc352f7525746217aadb9b3cdf7",
+    "file": "conveyor/support.ipt",
+    "license": "MIT",
+    "license_file": "LICENSE-roshbeng.txt"
+  },
+  {
+    "repository": "roshbeng/opcua_fusion_test_servers_and_hardware",
+    "revision": "d9ab21ced0a26e09a213a218249ac1938340bae6",
+    "path": "CAD models/conveyor_model/conveyor_model_v1/conveyor_model.iam",
+    "url": "https://raw.githubusercontent.com/roshbeng/opcua_fusion_test_servers_and_hardware/d9ab21ced0a26e09a213a218249ac1938340bae6/CAD%20models/conveyor_model/conveyor_model_v1/conveyor_model.iam",
+    "bytes": 66048,
+    "git_sha": "4bda73248838d0f5830a0d2abaceb9b019bfd3fc",
+    "sha256": "a2db0b7a6cda924b1e01ec182b663071242003576cdd3d2085779f8ab768f2a3",
+    "file": "conveyor/conveyor_model.iam",
+    "license": "MIT",
+    "license_file": "LICENSE-roshbeng.txt"
+  },
+  {
+    "file": "fusion-toy-block.f3d",
+    "bytes": 104086,
+    "sha256": "7fb14c89f0f2b04657fbdf178f6b2cf9fd902f905fd1687263280ca629e1502f",
+    "repository": "samueloladosu37/fusion360-sample-modeling",
+    "revision": "2d19f73689ac133e1f9abc5d6780681268d21808",
+    "path": "Day#1 - Toy Block v2.f3d",
+    "url": "https://github.com/samueloladosu37/fusion360-sample-modeling/blob/2d19f73689ac133e1f9abc5d6780681268d21808/Day%231%20-%20Toy%20Block%20v2.f3d",
+    "license": "MIT (declared in original README)",
+    "license_file": "FUSION-SAMPLES-README.md"
+  }
+]

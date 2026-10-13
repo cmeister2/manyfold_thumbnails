@@ -76,6 +76,124 @@ class CatwalkThumbnailTest < Minitest::Test
     assert_equal "model source", File.binread(source)
   end
 
+  def test_model_assembly_materializes_named_companions_for_catwalk_and_cleans_up
+    arguments = File.join(@directory, "arguments")
+    staged_bytes = File.join(@directory, "staged-bytes")
+    png = InventorFixture.png(width: 512, height: 512)
+    executable <<~RUBY
+      exit 3 unless File.basename(ARGV.first) == "Main.IAM"
+      File.write(#{arguments.dump}, ARGV.join("\\n"))
+      primary = File.binread(ARGV.first)
+      companion = File.binread(File.join(File.dirname(ARGV.first), "Part.IPT"))
+      File.binwrite(#{staged_bytes.dump}, primary + "|" + companion)
+      $stdout.binmode
+      $stdout.write(#{png.dump})
+    RUBY
+    record_class = Struct.new(:id, :filename, :attachment, :model)
+    model = Struct.new(:model_files).new([])
+    companion_attachment = Object.new
+    companion_attachment.define_singleton_method(:size) { "object storage part".bytesize }
+    companion_attachment.define_singleton_method(:open) do |&block|
+      StringIO.open("object storage part", &block)
+    end
+    record = record_class.new(1, "Main.IAM", nil, model)
+    model.model_files = [record, record_class.new(2, "Part.IPT", companion_attachment, model)]
+    source = File.join(@directory, "shrine-random.iam")
+    File.binwrite(source, "isolated assembly")
+    File.open(source, "rb") do |file|
+      extractor = ManyfoldThumbnails::Catwalk.new(file: file, record: record)
+      assert_equal png, extractor.call.fetch(:render).read
+      assert_equal :generated, extractor.status
+      assert_equal 0, file.pos
+    end
+    assert_equal "isolated assembly|object storage part", File.binread(staged_bytes)
+    argv = File.read(arguments).lines.map(&:chomp)
+    assert_equal "Main.IAM", File.basename(argv.first)
+    refute_equal source, argv.first
+    assert_equal ["--output", "-", "--size", "512", "--transparent"], argv.drop(1)
+    refute File.exist?(File.dirname(argv.first)), "Staged project must be removed after Catwalk exits"
+    assert_equal "isolated assembly", File.binread(source)
+  end
+
+  def test_invalid_model_assembly_project_is_reported_after_the_ordinary_call_fails
+    observation = File.join(@directory, "ordinary-input")
+    executable "File.write(#{observation.dump}, ARGV.first); exit 3"
+    model = Struct.new(:model_files).new([])
+    record = Struct.new(:filename, :model).new("../Main.iam", model)
+    extractor = ManyfoldThumbnails::Catwalk.new(file: StringIO.new("assembly"), record: record)
+    assert_empty extractor.call
+    assert_equal :failed, extractor.status
+    assert_includes extractor.reason, "relative paths"
+    assert_equal ".iam", File.extname(File.read(observation))
+  end
+
+  def test_usable_saved_assembly_thumbnail_ignores_unused_companion_problems
+    invocations = File.join(@directory, "invocations")
+    png = InventorFixture.png(width: 512, height: 512)
+    executable <<~RUBY
+      File.open(#{invocations.dump}, "a") { |file| file.puts ARGV.first }
+      $stdout.binmode
+      $stdout.write(#{png.dump})
+    RUBY
+    record_class = Struct.new(:id, :filename, :attachment, :model)
+    unusable_attachment = Object.new
+    unusable_attachment.define_singleton_method(:size) { 512 * 1024 * 1024 }
+    unusable_attachment.define_singleton_method(:open) { |*| raise "Unused companions must not be downloaded" }
+    [
+      ["duplicate.ipt", "DUPLICATE.ipt"],
+      ["../outside.ipt"],
+      Array.new(128) { |index| "part-#{index}.ipt" },
+      ["oversized.ipt"]
+    ].each do |filenames|
+      records = filenames.each_with_index.map { |name, index| record_class.new(index + 2, name, unusable_attachment) }
+      inspections = 0
+      model = Object.new
+      model.define_singleton_method(:model_files) { inspections += 1; records }
+      record = record_class.new(1, "Main.iam", nil, model)
+      extractor = ManyfoldThumbnails::Catwalk.new(file: StringIO.new("saved assembly preview"), record: record)
+      assert_equal png, extractor.call.fetch(:render).read
+      assert_equal :generated, extractor.status
+      assert_equal 0, inspections, "Saved thumbnails must not inspect unused companions."
+    end
+    assert_equal 4, File.readlines(invocations).length, "A usable thumbnail needs only one Catwalk invocation."
+  end
+
+  def test_successful_local_assembly_uses_its_existing_directory_without_staging
+    observation = File.join(@directory, "ordinary-input")
+    png = InventorFixture.png(width: 512, height: 512)
+    executable "File.write(#{observation.dump}, ARGV.first); $stdout.binmode; $stdout.write(#{png.dump})"
+    model = Object.new
+    model.define_singleton_method(:model_files) { raise "Successful local input must not stage companions" }
+    record = Struct.new(:filename, :model).new("Main.iam", model)
+    source = File.join(@directory, "Main.iam")
+    File.binwrite(source, "existing project assembly")
+    File.open(source, "rb") do |file|
+      extractor = ManyfoldThumbnails::Catwalk.new(file: file, record: record)
+      assert_equal png, extractor.call.fetch(:render).read
+      assert_equal :generated, extractor.status
+    end
+    assert_equal source, File.read(observation)
+  end
+
+  def test_assembly_retry_shares_the_initial_processing_deadline
+    invocations = File.join(@directory, "invocations")
+    png = InventorFixture.png(width: 512, height: 512)
+    executable <<~RUBY
+      File.open(#{invocations.dump}, "a") { |file| file.puts ARGV.first }
+      sleep 2
+      exit 3 unless File.basename(ARGV.first) == "Main.iam"
+      $stdout.binmode
+      $stdout.write(#{png.dump})
+    RUBY
+    model = Struct.new(:model_files).new([])
+    record = Struct.new(:filename, :model).new("Main.iam", model)
+    extractor = limited_class(MAX_SECONDS: 3).new(file: StringIO.new("assembly"), record: record)
+    assert_empty extractor.call
+    assert_equal :failed, extractor.status
+    assert_includes extractor.reason, "processing limit"
+    assert_equal 2, File.readlines(invocations).length
+  end
+
   def test_unsupported_mime_aliases_do_not_launch_catwalk
     executable "abort 'must not launch'"
     %w[project.f3z scene.lyt document.bin photo.png].each do |filename|

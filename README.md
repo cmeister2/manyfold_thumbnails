@@ -47,6 +47,8 @@ The list matches [the format registry](lib/manyfold_thumbnails/formats.rb). Read
 
 Catwalk produces a 512 x 512 PNG with a transparent background and a fixed camera. Its normal camera uses an isometric Z-up view; LightBurn uses the XY plane. Manyfold's per-file up-direction setting does not change that camera. Saved images can be missing, blank, or out of date, and file variants unsupported by a reader may still have no thumbnail. A thumbnail does not verify the design's geometry.
 
+Inventor assemblies that need geometry fallback are given a temporary project containing their current attachment and the same model's native `.ipt` / `.iam` attachments. Filenames and relative directories are preserved, including on object storage; Catwalk resolves and decodes all references. Companion staging is limited to 128 documents and 256 MiB in total and shares the 60-second processing deadline. References above the primary assembly's directory, missing components and ambiguous filenames remain unsupported. A usable saved thumbnail does not require companion staging. The pinned Catwalk 2.0.0 release extracts saved Inventor images; fresh geometry requires a Catwalk version that implements native geometry readers.
+
 Relative sidecar resources, such as OBJ materials or glTF buffers, can be read when Manyfold supplies the original local path with its extension. Downloaded or extensionless sources are processed as isolated temporary files; object-storage downloads may therefore lack sidecars. Use self-contained files when those resources are needed.
 
 By default, Catwalk handles only formats without another thumbnail provider in the running Manyfold installation. Existing F3D rendering and FreeCAD saved-preview extraction remain selected for their supported types. Enabled Catwalk formats use priority 5, above Manyfold's default model thumbnail providers. The host selects one provider per MIME type; it does not try another provider after an empty result.
@@ -108,11 +110,12 @@ Regeneration replaces only the selected file's `render` derivative and preserves
 | Downloaded release archive | 64 MiB |
 | Extracted release files | 128 MiB |
 | Download, verification and cache-lock deadline | 120 seconds |
-| Processing deadline, including any local source copy | 60 seconds |
+| Processing deadline, including local source copies and assembly staging | 60 seconds |
+| Staged Inventor project | 128 documents / 256 MiB |
 | PNG output | 8 MiB |
 | Captured diagnostics | 64 KiB |
 
-The deadline terminates the Catwalk process when exceeded. Source downloads and derivative uploads occur through Manyfold outside that deadline. These bounds do not establish a peak-memory limit or a limit on the total size of local sidecar resources. Missing previews and failed readers are recorded without changing the source file.
+The deadline terminates the Catwalk process when exceeded. Initial source downloads and derivative uploads occur through Manyfold outside that deadline. Assembly companion downloads are included in the processing deadline. These bounds do not establish a peak-memory limit or a limit on the total size of local sidecar resources. Missing previews and failed readers are recorded without changing the source file.
 
 ## Development
 

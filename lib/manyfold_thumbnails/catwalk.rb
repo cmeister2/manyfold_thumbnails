@@ -7,6 +7,7 @@ require "tempfile"
 require "timeout"
 require_relative "executable"
 require_relative "formats"
+require_relative "assembly_inputs"
 
 module ManyfoldThumbnails
   class Catwalk
@@ -38,7 +39,7 @@ module ManyfoldThumbnails
       check_source_size!(@file.size)
       binary = self.class.binary
       deadline = monotonic_time + self.class::MAX_SECONDS
-      output, diagnostic, exit_status = with_input(extension, deadline) { |path| run(binary, path, deadline) }
+      output, diagnostic, exit_status = run_with_project_retry(binary, extension, deadline)
       unless exit_status == 0
         @status = (exit_status == 3) ? :missing_image : :failed
         @reason = diagnostic_reason(diagnostic, "Catwalk exited with status #{exit_status}.")
@@ -55,7 +56,7 @@ module ManyfoldThumbnails
       {render: StringIO.new(output)}
     rescue Timeout::Error
       fail_with("Catwalk exceeded the #{self.class::MAX_SECONDS}-second processing limit.")
-    rescue ProcessingError, Executable::DownloadError, IOError, SystemCallError => error
+    rescue ProcessingError, AssemblyInputs::Error, Executable::DownloadError, IOError, SystemCallError => error
       fail_with(error.message)
     end
 
@@ -75,6 +76,16 @@ module ManyfoldThumbnails
     def check_source_size!(size)
       raise ProcessingError, "The source is empty." unless size.to_i.positive?
       raise ProcessingError, "The source exceeds the #{self.class::MAX_SOURCE_BYTES}-byte processing limit." if size > self.class::MAX_SOURCE_BYTES
+    end
+
+    def run_with_project_retry(binary, extension, deadline)
+      result = with_input(extension, deadline) { |path| run(binary, path, deadline) }
+      return result if result.last == 0 || extension != "iam" || !AssemblyInputs.applicable?(@record)
+
+      # Catwalk can use a saved image without loading any original components.
+      # Only an unsuccessful ordinary call needs a named companion project.
+      AssemblyInputs.new(file: @file, record: @record, deadline: deadline)
+        .with_files { |path| run(binary, path, deadline) }
     end
 
     def with_input(extension, deadline)

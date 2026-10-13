@@ -1,4 +1,21 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>cmeister2/renovate"]
+  "extends": ["github>cmeister2/renovate"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^config/catwalk\\.json$/"],
+      "matchStrings": ["\"version\"\\s*:\\s*\"(?<currentValue>[^\"\\s]+)\""],
+      "depNameTemplate": "cmeister2/catwalk3d",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["cmeister2/catwalk3d"],
+      "groupName": "Catwalk",
+      "semanticCommitType": "fix"
+    }
+  ]
 }

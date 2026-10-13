@@ -6,7 +6,7 @@
 # Their image sources are separate OBJ files; no raster compositing is used.
 #
 # CATWALK_BINARY=/path/to/pinned/catwalk ruby docs/examples/generate-previews.rb
-# Requires the checksum-pinned Linux Catwalk 2.0.0 release and Ruby's stdlib.
+# Requires the configured Linux Catwalk release and Ruby's stdlib.
 
 require "digest"
 require "json"
@@ -125,9 +125,7 @@ module ExamplePreviews
     end
     binary = Pathname.new(ENV.fetch("CATWALK_BINARY", root.join("test/vendor/catwalk/#{architecture}-unknown-linux-musl/catwalk").to_s))
     abort "Missing Catwalk executable; set CATWALK_BINARY to the pinned Linux release." unless binary.file? && binary.executable?
-    expected = metadata.fetch("targets").fetch("#{architecture}-unknown-linux-musl").fetch("files").fetch("catwalk")
-    abort "Catwalk checksum does not match the pinned release." unless Digest::SHA256.file(binary).hexdigest == expected
-    abort "Unexpected Catwalk version." unless command(binary, "--version").strip == "catwalk 2.0.0"
+    abort "Unexpected Catwalk version." unless command(binary, "--version").strip == "catwalk #{metadata.fetch('version')}"
     gear = inputs.join("gear.obj")
     abort "Gear OBJ differs from the pinned upstream source." unless Digest::SHA256.file(gear).hexdigest == GEAR_SHA256
     inputs.join("gears.obj").write(two_gears(gear.read))
@@ -160,7 +158,7 @@ module ExamplePreviews
        output_dimensions: dimensions(thumbnail), source_sha256: Digest::SHA256.hexdigest(carrier),
        native_png_sha256: Digest::SHA256.hexdigest(saved)}
     end
-    puts JSON.pretty_generate(catwalk: "2.0.0", render_size: 1024, samples: 2,
+    puts JSON.pretty_generate(catwalk: metadata.fetch("version"), render_size: 1024, samples: 2,
       carriers_contain_cad_geometry: false, examples: results)
   end
 end

@@ -9,7 +9,9 @@ require "zlib"
 module CatwalkReleaseFixture
   VERSION = "2.0.0"
   TARGET = "x86_64-unknown-linux-musl"
-  URL = "https://github.com/example/catwalk/releases/download/#{VERSION}/catwalk.zip"
+  REPOSITORY = "https://github.com/example/catwalk"
+  URL = "#{REPOSITORY}/releases/download/#{VERSION}/catwalk3d-#{VERSION}-#{TARGET}.zip"
+  METADATA_URL = "#{REPOSITORY}/releases/download/#{VERSION}/catwalk3d-#{VERSION}-#{TARGET}.json"
 
   def self.files
     {
@@ -36,17 +38,26 @@ module CatwalkReleaseFixture
       central.bytesize, local.bytesize, 0].pack("VvvvvVVv")
   end
 
-  def self.manifest(archive: self.archive, files: self.files)
+  def self.manifest(version: VERSION, targets: [TARGET])
     {
-      "version" => VERSION,
-      "repository" => "https://github.com/example/catwalk",
-      "targets" => {
-        TARGET => {
-          "url" => URL,
-          "sha256" => Digest::SHA256.hexdigest(archive),
-          "files" => files.transform_values { |content| Digest::SHA256.hexdigest(content) }
-        }
-      }
+      "version" => version,
+      "repository" => REPOSITORY,
+      "targets" => targets
+    }
+  end
+
+  def self.release_metadata(archive: self.archive, files: self.files, version: VERSION, target: TARGET)
+    prefix = "catwalk3d-#{version}-#{target}"
+    {
+      "schema" => 1,
+      "version" => version,
+      "target" => target,
+      "binary" => "catwalk",
+      "archive" => "#{prefix}.zip",
+      "sha256" => Digest::SHA256.hexdigest(archive),
+      "files" => files.map do |name, bytes|
+        {"path" => "#{prefix}/#{name}", "sha256" => Digest::SHA256.hexdigest(bytes), "size" => bytes.bytesize}
+      end
     }
   end
 end

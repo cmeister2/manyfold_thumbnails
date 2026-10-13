@@ -57,14 +57,19 @@ class CatwalkExecutableTest < Minitest::Test
   end
 
   def write_manifest(archive: @archive, files: CatwalkReleaseFixture.files)
-    File.write(@manifest_path, JSON.generate(CatwalkReleaseFixture.manifest(archive: archive, files: files)))
+    File.write(@manifest_path, JSON.generate(CatwalkReleaseFixture.manifest))
+    @release_metadata = CatwalkReleaseFixture.release_metadata(archive: archive, files: files)
   end
 
   def downloader(klass: FixtureExecutable, **options)
     klass.new(manifest_path: @manifest_path, cache_root: @cache,
       platform: "linux-gnu", cpu: "x86_64", **options).tap do |instance|
-      instance.responses = [response(body: @archive)]
+      instance.responses = [metadata_response, response(body: @archive)]
     end
+  end
+
+  def metadata_response(metadata = @release_metadata)
+    response(body: JSON.generate(metadata))
   end
 
   def response(body: "", code: "200", headers: {}, chunks: nil)
@@ -98,7 +103,8 @@ class CatwalkExecutableTest < Minitest::Test
     CatwalkReleaseFixture.files.each do |name, bytes|
       assert_equal bytes, File.binread(File.join(destination, name))
     end
-    assert_equal [CatwalkReleaseFixture::URL], executable.requests.map(&:to_s)
+    assert_equal [CatwalkReleaseFixture::METADATA_URL, CatwalkReleaseFixture::URL], executable.requests.map(&:to_s)
+    assert_equal @release_metadata, JSON.parse(File.read(File.join(destination, ".manifest.json")))
 
     cached = downloader
     cached.responses.clear
@@ -120,7 +126,7 @@ class CatwalkExecutableTest < Minitest::Test
     binary = executable.path
     assert File.executable?(binary)
     assert_equal binary_bytes, File.binread(binary)
-    assert_equal [CatwalkReleaseFixture::URL], executable.requests.map(&:to_s)
+    assert_equal [CatwalkReleaseFixture::METADATA_URL, CatwalkReleaseFixture::URL], executable.requests.map(&:to_s)
 
     cached = downloader
     cached.responses.clear
@@ -138,13 +144,74 @@ class CatwalkExecutableTest < Minitest::Test
     executable = downloader
     assert_equal original, executable.path
     assert_equal CatwalkReleaseFixture.files.fetch("catwalk"), File.binread(original)
-    assert_equal 1, executable.requests.size
+    assert_equal 2, executable.requests.size
+  end
+
+  def test_changing_only_the_configured_version_downloads_the_new_release
+    previous_binary = downloader.path
+    version = "2.1.0"
+    target = CatwalkReleaseFixture::TARGET
+    files = CatwalkReleaseFixture.files.merge("catwalk" => "#!/bin/sh\nexit 1\n", "release.json" =>
+      JSON.generate(version: version, target: target, binary: "catwalk"))
+    @archive = CatwalkReleaseFixture.archive(files, prefix: "catwalk3d-#{version}-#{target}/")
+    @release_metadata = CatwalkReleaseFixture.release_metadata(archive: @archive, files: files, version: version)
+    configured = JSON.parse(File.read(@manifest_path))
+    configured["version"] = version
+    File.write(@manifest_path, JSON.generate(configured))
+
+    executable = downloader
+    binary = executable.path
+    assert_equal File.join(@cache, version, target, "catwalk"), binary
+    assert_equal files.fetch("catwalk"), File.binread(binary)
+    assert_equal CatwalkReleaseFixture.files.fetch("catwalk"), File.binread(previous_binary)
+    assert_equal %w[json zip].map { |extension|
+      "#{CatwalkReleaseFixture::REPOSITORY}/releases/download/#{version}/catwalk3d-#{version}-#{target}.#{extension}"
+    }, executable.requests.map(&:to_s)
+
+    cached = downloader
+    cached.responses.clear
+    assert_equal binary, cached.path
+    assert_empty cached.requests
+  end
+
+  def test_missing_and_invalid_cached_metadata_trigger_a_fresh_verified_installation
+    binary = downloader.path
+    metadata_path = File.join(destination, ".manifest.json")
+    [nil, "incomplete JSON", JSON.generate(@release_metadata.merge("version" => "9.9.9"))].each do |bytes|
+      bytes ? File.write(metadata_path, bytes) : File.delete(metadata_path)
+      executable = downloader
+      assert_equal binary, executable.path
+      assert_equal [CatwalkReleaseFixture::METADATA_URL, CatwalkReleaseFixture::URL], executable.requests.map(&:to_s)
+      assert_equal @release_metadata, JSON.parse(File.read(metadata_path))
+    end
+  end
+
+  def test_invalid_published_metadata_is_rejected_before_downloading_an_archive
+    changes = [
+      {"schema" => 2}, {"version" => "9.9.9"}, {"target" => "aarch64-unknown-linux-musl"},
+      {"binary" => "another-program"}, {"archive" => "../../catwalk.zip"}, {"sha256" => "invalid"},
+      {"files" => @release_metadata.fetch("files").drop(1)},
+      {"files" => @release_metadata.fetch("files") + [@release_metadata.fetch("files").first]},
+      {"files" => [@release_metadata.fetch("files").first.merge("path" => "../../catwalk")]},
+      {"files" => [@release_metadata.fetch("files").first.merge("size" => -1)]},
+      {"files" => [@release_metadata.fetch("files").first.merge("sha256" => "invalid")]},
+      {"files" => [@release_metadata.fetch("files").first.merge("path" =>
+        "catwalk3d-#{CatwalkReleaseFixture::VERSION}-#{CatwalkReleaseFixture::TARGET}/.manifest.json")]}
+    ]
+    changes.each do |change|
+      executable = downloader
+      executable.responses = [metadata_response(@release_metadata.merge(change))]
+      error = assert_raises(ManyfoldThumbnails::Executable::DownloadError) { executable.path }
+      assert_match(/metadata/, error.message)
+      assert_equal [CatwalkReleaseFixture::METADATA_URL], executable.requests.map(&:to_s)
+      assert_no_installed_release
+    end
   end
 
   def test_archive_checksum_mismatch_and_truncated_download_are_rejected
     [@archive.sub("Authored", "Altered"), @archive.byteslice(0, @archive.bytesize / 2)].each do |bytes|
       executable = downloader
-      executable.responses = [response(body: bytes)]
+      executable.responses = [metadata_response, response(body: bytes)]
       error = assert_raises(ManyfoldThumbnails::Executable::DownloadError) { executable.path }
       assert_match(/checksum|download|archive/i, error.message)
       assert_no_installed_release
@@ -154,7 +221,7 @@ class CatwalkExecutableTest < Minitest::Test
   def test_verified_archive_with_wrong_member_checksum_is_rejected
     files = CatwalkReleaseFixture.files.merge("catwalk" => "unexpected executable")
     @archive = CatwalkReleaseFixture.archive(files)
-    # The archive itself is pinned correctly; the per-file hash still describes
+    # The published archive checksum matches; the per-file hash still describes
     # the intended executable, so extraction must reject the replacement.
     write_manifest(archive: @archive)
     executable = downloader
@@ -191,8 +258,22 @@ class CatwalkExecutableTest < Minitest::Test
     [response(body: "tiny", headers: {"content-length" => 33}),
       response(chunks: ["a" * 20, "b" * 20])].each do |reply|
       executable = downloader(klass: klass)
-      executable.responses = [reply]
+      executable.responses = [metadata_response, reply]
       assert_raises(ManyfoldThumbnails::Executable::DownloadError) { executable.path }
+      assert_no_installed_release
+    end
+  end
+
+  def test_metadata_downloads_have_a_separate_bounded_size
+    klass = Class.new(FixtureExecutable)
+    klass.const_set(:MAX_METADATA_BYTES, 32)
+    [response(body: "tiny", headers: {"content-length" => 33}),
+      response(chunks: ["a" * 20, "b" * 20])].each do |reply|
+      executable = downloader(klass: klass)
+      executable.responses = [reply]
+      error = assert_raises(ManyfoldThumbnails::Executable::DownloadError) { executable.path }
+      assert_match(/metadata.*download limit/, error.message)
+      assert_equal [CatwalkReleaseFixture::METADATA_URL], executable.requests.map(&:to_s)
       assert_no_installed_release
     end
   end
@@ -207,9 +288,9 @@ class CatwalkExecutableTest < Minitest::Test
   def test_https_redirect_fetches_the_release_asset
     executable = downloader
     target = "https://release-assets.githubusercontent.com/test/release.zip"
-    executable.responses = [response(code: "302", headers: {"location" => target}), response(body: @archive)]
+    executable.responses = [metadata_response, response(code: "302", headers: {"location" => target}), response(body: @archive)]
     assert File.executable?(executable.path)
-    assert_equal [CatwalkReleaseFixture::URL, target], executable.requests.map(&:to_s)
+    assert_equal [CatwalkReleaseFixture::METADATA_URL, CatwalkReleaseFixture::URL, target], executable.requests.map(&:to_s)
   end
 
   def test_insecure_and_excessive_redirects_are_rejected
@@ -242,11 +323,11 @@ class CatwalkExecutableTest < Minitest::Test
     request = nil
     arguments = nil
     options = nil
-    reply = response(body: @archive)
+    replies = [metadata_response, response(body: @archive)]
     http = Object.new
     http.define_singleton_method(:request) do |value, &block|
       request = value
-      block.call(reply)
+      block.call(replies.shift)
     end
     transport = lambda do |*values, **settings, &block|
       arguments = values
@@ -288,7 +369,7 @@ class CatwalkExecutableTest < Minitest::Test
   def test_cache_environment_selects_a_writable_persistent_directory
     ENV["MANYFOLD_THUMBNAILS_CATWALK_CACHE"] = @cache
     executable = FixtureExecutable.new(manifest_path: @manifest_path, platform: "linux", cpu: "x86_64")
-    executable.responses = [response(body: @archive)]
+    executable.responses = [metadata_response, response(body: @archive)]
     assert_equal File.join(destination, "catwalk"), executable.path
   end
 
@@ -335,7 +416,7 @@ class CatwalkExecutableTest < Minitest::Test
       _, status = Process.wait2(pid)
       assert status.success?, "Both workers should acquire the same verified executable"
     end
-    assert_equal [CatwalkReleaseFixture::URL], File.readlines(log, chomp: true)
+    assert_equal [CatwalkReleaseFixture::METADATA_URL, CatwalkReleaseFixture::URL], File.readlines(log, chomp: true)
     assert File.executable?(File.join(destination, "catwalk"))
   end
 

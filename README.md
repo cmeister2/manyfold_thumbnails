@@ -8,13 +8,20 @@ The plugin requires **Manyfold 0.151.0 or newer**. It downloads the pinned Catwa
 
 These are screenshots of Manyfold 0.151.0's model cards, including the model title, filename and action buttons. They display the existing Catwalk thumbnails: the Lychee render was supplied from a Manyfold library, Inventor and Fusion use authored saved-preview fixtures, and LightBurn renders project geometry.
 
-| Lychee · `.lys` | LightBurn · `.lbrn2` |
-| :---: | :---: |
-| <img src="docs/examples/lychee-avacyn-bust-card.png" width="360" alt="Manyfold model card showing Avacyn Bust, Avacyn_Bust.lys, its thumbnail and action buttons"> | <img src="docs/examples/lightburn-project-card.png" width="360" alt="Manyfold model card showing Butterfly drawing, butterfly_vectorized.lbrn2, its thumbnail and action buttons"> |
-| **Inventor part · `.ipt`** | **Inventor assembly · `.iam`** |
-| <img src="docs/examples/inventor-part-card.png" width="360" alt="Manyfold model card showing Inventor gear, part-carrier.ipt, its saved preview and action buttons"> | <img src="docs/examples/inventor-assembly-card.png" width="360" alt="Manyfold model card showing Inventor gear assembly, assembly-carrier.iam, its saved preview and action buttons"> |
-| **LightBurn · `.lbrn`** | **Fusion · `.f3d`** |
-| <img src="docs/examples/lightburn-legacy-card.png" width="360" alt="Manyfold model card showing Curves and shapes, classic-geometry.lbrn, its thumbnail and action buttons"> | <img src="docs/examples/fusion-saved-preview-card.png" width="360" alt="Manyfold model card showing Fusion saved preview, fusion-authored-deflate-preview.f3d, its thumbnail and action buttons"> |
+<p align="center">
+  <img src="docs/examples/lychee-avacyn-bust-card.png" width="360" alt="Manyfold model card showing Avacyn Bust, Avacyn_Bust.lys, its thumbnail and action buttons">
+  <img src="docs/examples/lightburn-project-card.png" width="360" alt="Manyfold model card showing Butterfly drawing, butterfly_vectorized.lbrn2, its thumbnail and action buttons">
+</p>
+
+<p align="center">
+  <img src="docs/examples/inventor-part-card.png" width="360" alt="Manyfold model card showing Inventor gear, gear-preview.ipt, its saved preview and action buttons">
+  <img src="docs/examples/inventor-assembly-card.png" width="360" alt="Manyfold model card showing Inventor gear assembly, gears-preview.iam, its saved preview and action buttons">
+</p>
+
+<p align="center">
+  <img src="docs/examples/lightburn-legacy-card.png" width="360" alt="Manyfold model card showing Curves and shapes, classic-geometry.lbrn, its thumbnail and action buttons">
+  <img src="docs/examples/fusion-saved-preview-card.png" width="360" alt="Manyfold model card showing Fusion saved preview, fusion-preview.f3d, its thumbnail and action buttons">
+</p>
 
 See [example sources and credits](docs/examples/README.md).
 

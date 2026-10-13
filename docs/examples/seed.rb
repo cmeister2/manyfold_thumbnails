@@ -28,14 +28,14 @@ examples = [
   {title: "Avacyn Bust", filename: "Avacyn_Bust.lys", image: "lychee-avacyn-bust.png", sources: []},
   {title: "Butterfly drawing", filename: "butterfly_vectorized.lbrn2", image: "lightburn-project.png",
    sources: ["native_geometry/lightburn/butterfly_vectorized.lbrn2", "formats/native_geometry/lightburn/butterfly_vectorized.lbrn2", "butterfly_vectorized.lbrn2"]},
-  {title: "Inventor gear", filename: "part-carrier.ipt", image: "inventor-part.png",
-   sources: ["saved-previews/autodesk/part-carrier.ipt", "formats/saved_previews/autodesk/part-carrier.ipt", "part-carrier.ipt"]},
-  {title: "Inventor gear assembly", filename: "assembly-carrier.iam", image: "inventor-assembly.png",
-   sources: ["saved-previews/autodesk/assembly-carrier.iam", "formats/saved_previews/autodesk/assembly-carrier.iam", "assembly-carrier.iam"]},
+  {title: "Inventor gear", filename: "gear-preview.ipt", image: "inventor-part.png",
+   sources: [examples_root.join("inputs/gear-preview.ipt").to_s]},
+  {title: "Inventor gear assembly", filename: "gears-preview.iam", image: "inventor-assembly.png",
+   sources: [examples_root.join("inputs/gears-preview.iam").to_s]},
   {title: "Curves and shapes", filename: "classic-geometry.lbrn", image: "lightburn-legacy.png",
    sources: ["native_geometry/lightburn/classic-geometry.lbrn", "formats/native_geometry/lightburn/classic-geometry.lbrn", "classic-geometry.lbrn"]},
-  {title: "Fusion saved preview", filename: "fusion-authored-deflate-preview.f3d", image: "fusion-saved-preview.png",
-   sources: ["formats/saved_previews/fusion-authored-deflate-preview.f3d", "saved_previews/fusion-authored-deflate-preview.f3d", "fusion-authored-deflate-preview.f3d"]}
+  {title: "Fusion saved preview", filename: "fusion-preview.f3d", image: "fusion-saved-preview.png",
+   sources: [examples_root.join("inputs/fusion-preview.f3d").to_s]}
 ]
 
 # Validate presentation inputs before creating any database records.
@@ -74,7 +74,7 @@ results = examples.map do |example|
     permission_preset: :private)
   model.save!
 
-  source = example.fetch(:sources).map { fixtures_root.join(it) }.find(&:file?)
+  source = example.fetch(:sources).map { Pathname.new(it).absolute? ? Pathname.new(it) : fixtures_root.join(it) }.find(&:file?)
   file = model.model_files.find_or_initialize_by(filename: example.fetch(:filename))
   if source
     destination = model_directory.join(example.fetch(:filename))

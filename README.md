@@ -6,18 +6,15 @@ The plugin requires **Manyfold 0.151.0 or newer**. It downloads the pinned Catwa
 
 ## Examples
 
-These are actual 512 × 512 Catwalk thumbnails. The Lychee example comes from an existing Manyfold library. Inventor and Fusion demonstrate saved-preview extraction using authored fixtures; the LightBurn examples render project geometry.
+These are screenshots of Manyfold 0.151.0's model cards, including the model title, filename and action buttons. They display the existing Catwalk thumbnails: the Lychee render was supplied from a Manyfold library, Inventor and Fusion use authored saved-preview fixtures, and LightBurn renders project geometry.
 
 | Lychee · `.lys` | LightBurn · `.lbrn2` |
 | :---: | :---: |
-| <img src="docs/examples/lychee-avacyn-bust.png" width="240" alt="Avacyn Bust with print supports, from a Lychee file"> | <img src="docs/examples/lightburn-project.png" width="240" alt="Butterfly outlines rendered from a LightBurn project"> |
-| Avacyn Bust | Butterfly drawing |
+| <img src="docs/examples/lychee-avacyn-bust-card.png" width="360" alt="Manyfold model card showing Avacyn Bust, Avacyn_Bust.lys, its thumbnail and action buttons"> | <img src="docs/examples/lightburn-project-card.png" width="360" alt="Manyfold model card showing Butterfly drawing, butterfly_vectorized.lbrn2, its thumbnail and action buttons"> |
 | **Inventor part · `.ipt`** | **Inventor assembly · `.iam`** |
-| <img src="docs/examples/inventor-part.png" width="240" alt="Gear saved preview extracted from an authored Inventor part fixture"> | <img src="docs/examples/inventor-assembly.png" width="240" alt="Two-gear saved preview extracted from an authored Inventor assembly fixture"> |
-| Saved-preview fixture | Saved-preview fixture |
+| <img src="docs/examples/inventor-part-card.png" width="360" alt="Manyfold model card showing Inventor gear, part-carrier.ipt, its saved preview and action buttons"> | <img src="docs/examples/inventor-assembly-card.png" width="360" alt="Manyfold model card showing Inventor gear assembly, assembly-carrier.iam, its saved preview and action buttons"> |
 | **LightBurn · `.lbrn`** | **Fusion · `.f3d`** |
-| <img src="docs/examples/lightburn-legacy.png" width="240" alt="Coloured curves and shapes rendered from a legacy LightBurn project"> | <img src="docs/examples/fusion-saved-preview.png" width="240" alt="Coloured triangle saved preview extracted from an authored Fusion fixture"> |
-| Curves and shapes | Saved-preview fixture |
+| <img src="docs/examples/lightburn-legacy-card.png" width="360" alt="Manyfold model card showing Curves and shapes, classic-geometry.lbrn, its thumbnail and action buttons"> | <img src="docs/examples/fusion-saved-preview-card.png" width="360" alt="Manyfold model card showing Fusion saved preview, fusion-authored-deflate-preview.f3d, its thumbnail and action buttons"> |
 
 See [example sources and credits](docs/examples/README.md).
 

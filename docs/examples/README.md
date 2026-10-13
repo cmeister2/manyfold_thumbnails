@@ -1,6 +1,8 @@
-# Thumbnail example sources
+# Manyfold card examples and thumbnail sources
 
-The main README uses these unmodified 512 × 512 PNG outputs. The Lychee image was supplied from an existing Manyfold library; the other five were generated with the plugin's pinned Catwalk 2.0.0 executable. Inventor and Fusion use its thumbnail arguments:
+The main README shows browser screenshots of complete model cards from the released Manyfold 0.151.0 image, using its normal HTML, CSS and render-derivative routes. The titles and filenames are example metadata saved in Manyfold. Screenshots use Chromium in the default light theme at a 1920 x 1200 viewport and twice the display resolution. Each `*-card.png` includes the preview, title, filename caption and action buttons.
+
+The original 512 x 512 thumbnail PNGs remain the inputs for these screenshots. The Lychee image was supplied from an existing Manyfold library; the other five were generated with the plugin's pinned Catwalk 2.0.0 executable. Inventor and Fusion use its thumbnail arguments:
 
 ```sh
 catwalk INPUT --output - --size 512 --transparent > OUTPUT.png
@@ -24,3 +26,21 @@ catwalk INPUT --output - --size 512 --background ffffff > OUTPUT.png
 The Inventor and Fusion inputs are authored thumbnail-container fixtures. They contain saved images without CAD geometry, demonstrating the extraction path used for those formats. Catwalk's original gear model and these authored fixtures are covered by its [MIT license](LICENSE-catwalk.txt).
 
 The butterfly project is from João Lucas de Oliveira Lopes's lbrn2-to-svg project, used under its [MIT license](LICENSE-lightburn-project.txt).
+
+## Regenerate the cards
+
+Use a separate development instance for the six example models:
+
+```sh
+docker compose -p manyfold-thumbnail-examples up --build -d
+docker compose -p manyfold-thumbnail-examples exec manyfold \
+  bundle exec rails runner /plugins/manyfold_thumbnails/docs/examples/seed.rb
+uv run --with playwright==1.63.0 python -m playwright install chromium
+uv run --with playwright==1.63.0 python docs/examples/capture.py \
+  --base-url http://127.0.0.1:3215
+docker compose -p manyfold-thumbnail-examples down -v
+```
+
+The seed imports the committed PNGs as real `render` derivatives and selects their files as model previews. It does not regenerate the thumbnails. It attaches the five original source fixtures when their paths from the table above are available under `FIXTURES_ROOT` (default `/fixtures`). Sources are optional for these display examples; absent sources are represented by derivative-only attachments. In particular, the Avacyn `.lys` was not supplied, so no replacement design file is created.
+
+The capture script visits Manyfold's model list, dismisses the onboarding tour through its close button, waits for fonts and all six render images, checks each title and filename, then screenshots the complete `.card.preview-card` elements. The screenshots are cropped by the browser to the card bounds without changing Manyfold's markup or styling.

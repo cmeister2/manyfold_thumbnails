@@ -9,6 +9,7 @@ en:
         renders_disabled: Model thumbnail generation is currently disabled in Manyfold.
         derivatives_settings: Open Derivatives settings
         file_types: File types
+        format_description: Format
         save: Save thumbnail settings
         changes: Changes apply to future thumbnails and manual regeneration. Existing thumbnails are retained.
         use_catwalk: Enable Catwalk

@@ -1,0 +1,32 @@
+Adapted demo build, export and static navigation code
+
+Original project: OpenSCAD Customizer for Manyfold
+Original author and copyright notice: Copyright (C) 2026 Max Dymond.
+Original license: AGPL-3.0-only.
+Original source revision: 41a967e1d76fd10924cce1f2605e0422c81bcf5e
+https://github.com/cmeister2/manyfold_openscad/tree/41a967e1d76fd10924cce1f2605e0422c81bcf5e
+
+Original files:
+https://github.com/cmeister2/manyfold_openscad/blob/41a967e1d76fd10924cce1f2605e0422c81bcf5e/bin/build-demo
+https://github.com/cmeister2/manyfold_openscad/blob/41a967e1d76fd10924cce1f2605e0422c81bcf5e/demo/run-host
+https://github.com/cmeister2/manyfold_openscad/blob/41a967e1d76fd10924cce1f2605e0422c81bcf5e/demo/export.rb
+https://github.com/cmeister2/manyfold_openscad/blob/41a967e1d76fd10924cce1f2605e0422c81bcf5e/demo/bootstrap.mjs
+
+https://github.com/cmeister2/manyfold_openscad/blob/41a967e1d76fd10924cce1f2605e0422c81bcf5e/test/demo/serve.mjs
+
+https://github.com/cmeister2/manyfold_openscad/blob/41a967e1d76fd10924cce1f2605e0422c81bcf5e/playwright.demo.config.mjs
+
+https://github.com/cmeister2/manyfold_openscad/blob/41a967e1d76fd10924cce1f2605e0422c81bcf5e/.github/workflows/pages.yml
+
+The corresponding files in manyfold_thumbnails adapt that demo pipeline to
+export Manyfold's thumbnail gallery and format settings. The OpenSCAD renderer,
+WebAssembly and Customizer code are not included. The original copyright and
+AGPL-3.0-only license apply to the adapted demo code. This notice does not
+declare a license for unrelated plugin code or for the thumbnail images, whose
+separate source and license notices are retained alongside them.
+
+Adapted source:
+https://github.com/cmeister2/manyfold_thumbnails
+
+The unchanged original license text is retained in
+OPENSCAD-DEMO-AGPL-3.0.txt.

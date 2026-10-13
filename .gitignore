@@ -4,6 +4,7 @@ __pycache__/
 .bundle/
 dist/
 node_modules/
+test-results/
 lib/manyfold_thumbnails/vendor/
 test/vendor/
 .env

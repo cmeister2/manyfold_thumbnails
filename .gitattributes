@@ -1,0 +1,4 @@
+# Preserve rendered outputs and retained upstream notices byte-for-byte.
+docs/examples/native/** -text
+demo/licenses/** -text -whitespace
+docs/examples/native/FUSION-SAMPLES-README.md -whitespace

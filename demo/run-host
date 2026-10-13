@@ -1,0 +1,12 @@
+#!/bin/ash
+# Adapted from Max Dymond's manyfold_openscad demo (AGPL-3.0-only).
+# See demo/licenses/OPENSCAD-DEMO-NOTICE.txt for original source and copyright.
+set -eu
+trap 'chown -R "$DEMO_OWNER_UID:$DEMO_OWNER_GID" /demo-output' EXIT
+cd /usr/src/app
+redis-server --bind 127.0.0.1 --save "" --appendonly no --daemonize yes --logfile /tmp/demo-redis.log
+bundle exec rails db:prepare:with_data >/tmp/demo-database.log 2>&1 || {
+  cat /tmp/demo-database.log
+  exit 1
+}
+bundle exec rails runner /plugins/manyfold_thumbnails/demo/export.rb

@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+# Adapted from Max Dymond's manyfold_openscad demo (AGPL-3.0-only).
+# See demo/licenses/OPENSCAD-DEMO-NOTICE.txt for original source and copyright.
+"""Export Manyfold's real thumbnail gallery and settings as a static site."""
+
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+IMAGE = "manyfold3d/manyfold-solo:0.151.0@sha256:772bcb18f0cb69d4fd0630d4676516f34fb37e42c3ac9d65eea5f173728e818e"
+
+
+def main():
+    destination = ROOT / "dist" / "demo"
+    destination.parent.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".demo-", dir=destination.parent) as staging:
+        subprocess.run([
+            "docker", "run", "--rm", "--pull=missing", "--network=none",
+            "--entrypoint", "/plugins/manyfold_thumbnails/demo/run-host",
+            "--mount", f"type=bind,source={ROOT},target=/plugins/manyfold_thumbnails,readonly",
+            "--mount", f"type=bind,source={staging},target=/demo-output",
+            "--tmpfs", "/config", "--tmpfs", "/tmp",
+            "--env", "PLUGINS_PATH=/plugins",
+            "--env", "DATABASE_URL=sqlite3:/config/manyfold.sqlite3",
+            "--env", "REDIS_URL=redis://127.0.0.1:6379/1",
+            "--env", "MULTIUSER=disabled",
+            "--env", "SECRET_KEY_BASE=manyfold-thumbnails-disposable-demo-build-with-no-real-data",
+            "--env", "MANYFOLD_LOG_LEVEL=warn",
+            "--env", "SUDO_RUN_UNSAFELY=enabled",
+            "--env", "MANYFOLD_THUMBNAILS_DEMO_BUILD=1",
+            "--env", "MANYFOLD_THUMBNAILS_CATWALK=/static-demo-does-not-run-catwalk",
+            "--env", f"DEMO_OWNER_UID={os.getuid()}",
+            "--env", f"DEMO_OWNER_GID={os.getgid()}",
+            IMAGE,
+        ], check=True)
+        if destination.exists():
+            shutil.rmtree(destination)
+        Path(staging).rename(destination)
+    print(destination)
+
+
+if __name__ == "__main__":
+    main()

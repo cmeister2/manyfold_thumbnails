@@ -1,0 +1,117 @@
+{
+  "manyfold": {
+    "version": "0.151.0",
+    "image": "manyfold3d/manyfold-solo:0.151.0@sha256:772bcb18f0cb69d4fd0630d4676516f34fb37e42c3ac9d65eea5f173728e818e",
+    "source": "https://github.com/manyfold3d/manyfold/tree/c89c8964c714749957656474ab1e3757ff8f12ca",
+    "files": [
+      "manyfold-LICENSE.md"
+    ]
+  },
+  "packages": [
+    {
+      "package": "bootstrap",
+      "version": "5.3.8",
+      "repository": "https://github.com/twbs/bootstrap",
+      "tarball": "https://registry.npmjs.org/bootstrap/-/bootstrap-5.3.8.tgz",
+      "integrity": "sha512-HP1SZDqaLDPwsNiqRqi5NcP0SSXciX2s9E+RyqJIIqGo+vJeN5AJVM98CXmW/Wux0nQ5L7jeWUdplCEf0Ee+tg==",
+      "files": [
+        "bootstrap-LICENSE.txt"
+      ]
+    },
+    {
+      "package": "bootstrap-icons",
+      "version": "1.13.1",
+      "repository": "https://github.com/twbs/icons",
+      "tarball": "https://registry.npmjs.org/bootstrap-icons/-/bootstrap-icons-1.13.1.tgz",
+      "integrity": "sha512-ijombt4v6bv5CLeXvRWKy7CuM3TRTuPEuGaGKvTV5cz65rQSY8RQ2JcHt6b90cBBAC7s8fsf2EkQDldzCoXUjw==",
+      "files": [
+        "bootstrap-icons-LICENSE.txt"
+      ]
+    },
+    {
+      "package": "@infinizhen/rpg-awesome-continued",
+      "version": "1.0.6",
+      "repository": "https://github.com/Infinizhen/Rpg-Awesome-Continued",
+      "tarball": "https://registry.npmjs.org/@infinizhen/rpg-awesome-continued/-/rpg-awesome-continued-1.0.6.tgz",
+      "integrity": "sha512-4m98zFn7eIKtW0HjiBKZ2tJWdSVBYKDAutxtrnv3c9/+hZ1Pp/vlYjvbjdgO7q1lgyhqEntbEHK+xK2Y5h2f8Q==",
+      "files": [
+        "rpg-awesome-continued-LICENSE.md",
+        "rpg-awesome-continued-README.md",
+        "rpg-awesome-continued-NOTICE.txt",
+        "OFL-1.1.txt",
+        "CC-BY-3.0.txt",
+        "MIT.txt"
+      ]
+    },
+    {
+      "package": "tom-select",
+      "version": "2.6.2",
+      "repository": "https://github.com/orchidjs/tom-select",
+      "tarball": "https://registry.npmjs.org/tom-select/-/tom-select-2.6.2.tgz",
+      "integrity": "sha512-eiXIkk82XzzUTOVQDFpy+ZGejuqdTvMukyUyeZBQaKnqW42UoTiTZnrod/eX0rkqJEc4rZY9DZ3zdjV07i29wQ==",
+      "files": [
+        "tom-select-LICENSE.txt"
+      ]
+    },
+    {
+      "package": "@uppy/core",
+      "version": "6.2.0",
+      "repository": "https://github.com/transloadit/uppy",
+      "tarball": "https://registry.npmjs.org/@uppy/core/-/core-6.2.0.tgz",
+      "integrity": "sha512-GujQtHazyHM2jjoNZyZlB+R3mUf1bynx0D+sPRt4IfLEfV09LbqA1kzwabL+WEKFdfqls15T+a/4u3XGV4n/oQ==",
+      "files": [
+        "uppy-core-LICENSE.txt"
+      ],
+      "license_source_tar_member": "package/LICENSE"
+    },
+    {
+      "package": "@uppy/dashboard",
+      "version": "5.1.0",
+      "repository": "https://github.com/transloadit/uppy",
+      "tarball": "https://registry.npmjs.org/@uppy/dashboard/-/dashboard-5.1.0.tgz",
+      "integrity": "sha512-TCuDbsAWokPO2LzubDoXyBskY/DHFB9tyDeHJe1FGBHrm0sY2zd+yEW7c4HNMDiIYCs/AdFJWAjQosCT07rD6Q==",
+      "files": [
+        "uppy-dashboard-LICENSE.txt"
+      ]
+    },
+    {
+      "package": "driver.js",
+      "version": "1.9.0",
+      "repository": "https://github.com/nilbuild/driver.js",
+      "tarball": "https://registry.npmjs.org/driver.js/-/driver.js-1.9.0.tgz",
+      "integrity": "sha512-+YWVdNVUrY1/2spszQshohWYY4soIjNBnMFS6lfmousT8igos2lmswhlqyuuNMhr+qbV0EjJ+L6i2FECPr6Ygg==",
+      "files": [
+        "driverjs-LICENSE.txt"
+      ],
+      "license_source_tar_member": "package/license"
+    }
+  ],
+  "additional_license_sources": {
+    "OFL-1.1.txt": "https://openfontlicense.org/documents/OFL.txt",
+    "CC-BY-3.0.txt": "https://creativecommons.org/licenses/by/3.0/legalcode.txt",
+    "MIT.txt": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+    "manyfold-LICENSE.md": "https://raw.githubusercontent.com/manyfold3d/manyfold/c89c8964c714749957656474ab1e3757ff8f12ca/LICENSE.md",
+    "OPENSCAD-DEMO-AGPL-3.0.txt": "https://raw.githubusercontent.com/cmeister2/manyfold_openscad/41a967e1d76fd10924cce1f2605e0422c81bcf5e/LICENSE"
+  },
+  "adapted_demo": {
+    "project": "OpenSCAD Customizer for Manyfold",
+    "author": "Max Dymond",
+    "copyright": "Copyright (C) 2026 Max Dymond.",
+    "license": "AGPL-3.0-only",
+    "source": "https://github.com/cmeister2/manyfold_openscad/tree/41a967e1d76fd10924cce1f2605e0422c81bcf5e",
+    "source_revision": "41a967e1d76fd10924cce1f2605e0422c81bcf5e",
+    "adapted_files": [
+      "bin/build-demo",
+      "demo/run-host",
+      "demo/export.rb",
+      "demo/bootstrap.mjs",
+      "test/demo/serve.mjs",
+      "playwright.demo.config.mjs",
+      ".github/workflows/pages.yml"
+    ],
+    "notice": "OPENSCAD-DEMO-NOTICE.txt",
+    "license_file": "OPENSCAD-DEMO-AGPL-3.0.txt",
+    "license_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+    "scope": "Adapted demo files; no repository-wide thumbnail plugin license is declared."
+  }
+}

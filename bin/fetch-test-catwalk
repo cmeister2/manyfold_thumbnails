@@ -5,12 +5,20 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import re
 import shutil
+import stat
 import tempfile
 import time
 import urllib.error
 import urllib.request
 import zipfile
+
+
+MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+MAX_EXTRACTED_BYTES = 128 * 1024 * 1024
+MAX_METADATA_BYTES = 1024 * 1024
+MANIFEST_NAME = ".manifest.json"
 
 
 def digest(path):
@@ -21,74 +29,145 @@ def digest(path):
     return checksum.hexdigest()
 
 
-def check_target(directory, target, release, version):
-    for name, expected in release["files"].items():
+def release_files(release, target, version):
+    prefix = f"catwalk3d-{version}-{target}/"
+    if not isinstance(release, dict) or (
+        type(release.get("schema")) is not int or release["schema"] != 1
+        or release.get("version") != version
+        or release.get("target") != target
+        or release.get("binary") != "catwalk"
+        or release.get("archive") != prefix[:-1] + ".zip"
+        or not valid_checksum(release.get("sha256"))
+        or not isinstance(release.get("files"), list)
+    ):
+        raise ValueError("Unexpected Catwalk release manifest.")
+
+    files = {}
+    total_bytes = 0
+    for entry in release["files"]:
+        if not isinstance(entry, dict):
+            raise ValueError("Invalid Catwalk release file metadata.")
+        path = entry.get("path")
+        name = path.removeprefix(prefix) if isinstance(path, str) else ""
+        size = entry.get("size")
+        if (
+            not isinstance(path, str) or not path.startswith(prefix)
+            or not re.fullmatch(r"[A-Za-z0-9_.-]+", name) or name in (".", "..", MANIFEST_NAME)
+            or name in files or not valid_checksum(entry.get("sha256"))
+            or type(size) is not int or size < 0
+        ):
+            raise ValueError("Invalid Catwalk release file metadata.")
+        total_bytes += size
+        if total_bytes > MAX_EXTRACTED_BYTES:
+            raise ValueError("Catwalk release exceeds the extraction limit.")
+        files[name] = entry
+    if not {"catwalk", "LICENSE", "release.json"}.issubset(files):
+        raise ValueError("Catwalk release manifest is missing required files.")
+    return files
+
+
+def valid_checksum(value):
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def check_target(directory, target, version):
+    if not directory.is_dir() or directory.is_symlink():
+        raise ValueError(f"Missing Catwalk assets: {directory}")
+    manifest = directory / MANIFEST_NAME
+    if not manifest.is_file() or manifest.is_symlink() or manifest.stat().st_size > MAX_METADATA_BYTES:
+        raise ValueError(f"Missing or invalid Catwalk release manifest: {manifest}")
+    release = json.loads(manifest.read_text(encoding="utf-8"))
+    for name, expected in release_files(release, target, version).items():
         path = directory / name
-        if not path.is_file() or path.is_symlink() or digest(path) != expected:
+        if (not path.is_file() or path.is_symlink() or path.stat().st_size != expected["size"]
+                or digest(path) != expected["sha256"]):
             raise ValueError(f"Missing or unverified Catwalk asset: {path}")
     metadata = json.loads((directory / "release.json").read_text(encoding="utf-8"))
-    if metadata.get("version") != version or metadata.get("target") != target or metadata.get("binary") != "catwalk":
+    if not isinstance(metadata, dict) or metadata.get("version") != version or metadata.get("target") != target or metadata.get("binary") != "catwalk":
         raise ValueError(f"Unexpected Catwalk release metadata: {directory / 'release.json'}")
     if not (directory / "catwalk").stat().st_mode & 0o111:
         raise ValueError(f"Catwalk binary is not executable: {directory / 'catwalk'}")
 
 
-def download(url):
+def download(url, limit):
     request = urllib.request.Request(url, headers={"User-Agent": "manyfold-thumbnails-vendor"})
     for attempt in range(3):
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
-                return response.read()
+                data = response.read(limit + 1)
+                if len(data) > limit:
+                    raise ValueError(f"Catwalk download exceeds the {limit}-byte limit: {url}")
+                return data
         except (urllib.error.URLError, TimeoutError):
             if attempt == 2:
                 raise
             time.sleep(attempt + 1)
 
 
+def fetch_target(vendor, target, version, repository, check=False):
+    destination = vendor / target
+    try:
+        check_target(destination, target, version)
+    except (OSError, ValueError):
+        if check:
+            raise
+    else:
+        print(f"Verified Catwalk {version} ({target}).")
+        return
+
+    print(f"Downloading Catwalk {version} ({target}).", flush=True)
+    release_url = f"{repository}/releases/download/{version}/"
+    manifest_data = download(f"{release_url}catwalk3d-{version}-{target}.json", MAX_METADATA_BYTES)
+    release = json.loads(manifest_data)
+    files = release_files(release, target, version)
+    archive_url = release_url + release["archive"]
+    data = download(archive_url, MAX_DOWNLOAD_BYTES)
+    if hashlib.sha256(data).hexdigest() != release["sha256"]:
+        raise ValueError(f"Catwalk archive checksum mismatch: {archive_url}")
+    vendor.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".catwalk-", dir=vendor) as temporary:
+        extracted = Path(temporary)
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            entries = archive.infolist()
+            expected_names = {entry["path"] for entry in files.values()}
+            if len(entries) != len(expected_names) or {entry.filename for entry in entries} != expected_names:
+                raise ValueError("Unexpected files in Catwalk release archive.")
+            for name, expected in files.items():
+                entry = archive.getinfo(expected["path"])
+                if entry.is_dir() or stat.S_ISLNK(entry.external_attr >> 16) or entry.file_size != expected["size"]:
+                    raise ValueError(f"Unexpected Catwalk release file: {name}")
+                (extracted / name).write_bytes(archive.read(entry))
+                (extracted / name).chmod(0o755 if name == "catwalk" else 0o644)
+        (extracted / MANIFEST_NAME).write_bytes(manifest_data)
+        check_target(extracted, target, version)
+        if destination.exists():
+            shutil.rmtree(destination)
+        extracted.rename(destination)
+    print(f"Verified Catwalk {version} ({target}).")
+
+
 def main():
     root = Path(__file__).resolve().parents[1]
     metadata = json.loads((root / "config/catwalk.json").read_text(encoding="utf-8"))
+    if not isinstance(metadata, dict) or (
+        not isinstance(metadata.get("version"), str)
+        or not re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?", metadata["version"])
+        or not isinstance(metadata.get("repository"), str)
+        or not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", metadata["repository"])
+        or not isinstance(metadata.get("targets"), list) or not metadata["targets"]
+        or any(not isinstance(target, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", target) for target in metadata["targets"])
+    ):
+        raise ValueError("Invalid Catwalk configuration.")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Check existing files without network access.")
     parser.add_argument("--target", action="append", choices=metadata["targets"], help="Vendor a single target; defaults to both Linux architectures.")
     args = parser.parse_args()
-    vendor = root / "test/vendor/catwalk"
     for target in args.target or metadata["targets"]:
-        release = metadata["targets"][target]
-        destination = vendor / target
-        try:
-            check_target(destination, target, release, metadata["version"])
-        except ValueError:
-            if args.check:
-                raise
-        else:
-            print(f"Verified Catwalk {metadata['version']} ({target}).")
-            continue
-
-        print(f"Downloading Catwalk {metadata['version']} ({target}).", flush=True)
-        data = download(release["url"])
-        if hashlib.sha256(data).hexdigest() != release["sha256"]:
-            raise ValueError(f"Catwalk archive checksum mismatch: {release['url']}")
-        vendor.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix=".catwalk-", dir=vendor) as temporary:
-            extracted = Path(temporary)
-            prefix = f"catwalk3d-{metadata['version']}-{target}/"
-            with zipfile.ZipFile(io.BytesIO(data)) as archive:
-                expected_names = {prefix + name for name in release["files"]}
-                if set(archive.namelist()) != expected_names:
-                    raise ValueError("Unexpected files in Catwalk release archive.")
-                for name in release["files"]:
-                    (extracted / name).write_bytes(archive.read(prefix + name))
-                    (extracted / name).chmod(0o755 if name == "catwalk" else 0o644)
-            check_target(extracted, target, release, metadata["version"])
-            if destination.exists():
-                shutil.rmtree(destination)
-            extracted.rename(destination)
-        print(f"Verified Catwalk {metadata['version']} ({target}).")
+        fetch_target(root / "test/vendor/catwalk", target, metadata["version"], metadata["repository"], args.check)
 
 
 if __name__ == "__main__":
     try:
         main()
     except (OSError, ValueError, zipfile.BadZipFile) as error:
-        raise SystemExit(f"{error}\nRun bin/fetch-test-catwalk to fetch the pinned test assets.")
+        raise SystemExit(f"{error}\nRun bin/fetch-test-catwalk to fetch the configured test assets.")

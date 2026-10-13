@@ -15,11 +15,13 @@ module ManyfoldThumbnails
   # separate from Rails initialization and the thumbnail processing deadline.
   class Executable
     MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+    MAX_METADATA_BYTES = 1024 * 1024
     MAX_EXTRACTED_BYTES = 128 * 1024 * 1024
     MAX_SECONDS = 120
     MAX_REDIRECTS = 5
     DOWNLOAD_HOSTS = %w[github.com release-assets.githubusercontent.com objects.githubusercontent.com].freeze
     MANIFEST_PATH = File.expand_path("../../config/catwalk.json", __dir__)
+    CACHED_MANIFEST = ".manifest.json"
     class DownloadError < StandardError; end
 
     def self.path
@@ -41,10 +43,9 @@ module ManyfoldThumbnails
       target = target_for_platform
       metadata = manifest
       version = metadata.fetch("version")
-      release = metadata.fetch("targets").fetch(target) do
+      unless metadata.fetch("targets").include?(target)
         raise DownloadError, "The pinned Catwalk release has no executable for #{target}."
       end
-      validate_release!(version, release)
       version_directory = File.join(cache_root, version)
       destination = File.join(version_directory, target)
 
@@ -53,8 +54,9 @@ module ManyfoldThumbnails
         deadline = monotonic_time + self.class::MAX_SECONDS
         FileUtils.mkdir_p(version_directory)
         with_lock(File.join(version_directory, ".#{target}.lock"), deadline) do
-          unless verified_installation?(destination, target, release, version)
-            install(destination, target, release, version, deadline)
+          release = cached_release(destination, target, metadata)
+          unless release && verified_installation?(destination, target, release, version)
+            install(destination, target, metadata, deadline)
           end
         end
       end
@@ -118,21 +120,62 @@ module ManyfoldThumbnails
 
     def manifest
       metadata = JSON.parse(File.read(@manifest_path))
-      unless metadata.is_a?(Hash) && metadata["targets"].is_a?(Hash)
+      unless metadata.is_a?(Hash) && metadata["targets"].is_a?(Array) &&
+          metadata["targets"].all? { |target| target.is_a?(String) } &&
+          metadata["version"].is_a?(String) && metadata["version"].match?(/\A\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\z/) &&
+          metadata["repository"].is_a?(String) &&
+          metadata["repository"].match?(/\Ahttps:\/\/github\.com\/[A-Za-z0-9_-][A-Za-z0-9_.-]*\/[A-Za-z0-9_-][A-Za-z0-9_.-]*\z/)
         raise DownloadError, "Invalid pinned Catwalk release manifest."
       end
       metadata
     end
 
-    def validate_release!(version, release)
-      unless version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\z/) &&
-          release.is_a?(Hash) && release["files"].is_a?(Hash) &&
-          %w[catwalk LICENSE release.json].all? { |name| release["files"].key?(name) } &&
-          valid_checksum?(release["sha256"]) &&
-          release["files"].all? { |name, checksum| name.is_a?(String) && name.match?(/\A[A-Za-z0-9_.-]+\z/) && name != "." && name != ".." && valid_checksum?(checksum) }
-        raise DownloadError, "Invalid pinned Catwalk release manifest."
+    def release_metadata(metadata, target, manifest)
+      version = manifest.fetch("version")
+      prefix = "catwalk3d-#{version}-#{target}"
+      unless metadata.is_a?(Hash) && metadata["schema"] == 1 && metadata["version"] == version &&
+          metadata["target"] == target && metadata["binary"] == "catwalk" &&
+          metadata["archive"] == "#{prefix}.zip" && valid_checksum?(metadata["sha256"]) &&
+          metadata["files"].is_a?(Array)
+        raise DownloadError, "Invalid Catwalk release metadata."
       end
-      validated_uri(release.fetch("url"))
+
+      files = {}
+      total_bytes = 0
+      metadata.fetch("files").each do |file|
+        unless file.is_a?(Hash) && file["path"].is_a?(String) && file["path"].start_with?("#{prefix}/")
+          raise DownloadError, "Invalid Catwalk release metadata file."
+        end
+        name = file.fetch("path").delete_prefix("#{prefix}/")
+        unless name.match?(/\A[A-Za-z0-9_.-]+\z/) && ![".", "..", self.class::CACHED_MANIFEST].include?(name) &&
+            !files.key?(name) && valid_checksum?(file["sha256"]) && file["size"].is_a?(Integer) && file["size"] >= 0
+          raise DownloadError, "Invalid Catwalk release metadata file."
+        end
+        total_bytes += file.fetch("size")
+        if total_bytes > self.class::MAX_EXTRACTED_BYTES
+          raise DownloadError, "Catwalk release exceeds the #{self.class::MAX_EXTRACTED_BYTES}-byte extraction limit."
+        end
+        files[name] = file.fetch("sha256")
+      end
+      unless %w[catwalk LICENSE release.json].all? { |name| files.key?(name) }
+        raise DownloadError, "Catwalk release metadata is missing required files."
+      end
+      {"url" => release_asset_url(manifest, metadata.fetch("archive")), "sha256" => metadata.fetch("sha256"), "files" => files}
+    end
+
+    def release_asset_url(manifest, asset)
+      "#{manifest.fetch("repository")}/releases/download/#{manifest.fetch("version")}/#{asset}"
+    end
+
+    def cached_release(directory, target, manifest)
+      return unless File.directory?(directory) && !File.symlink?(directory)
+
+      path = File.join(directory, self.class::CACHED_MANIFEST)
+      return unless File.file?(path) && !File.symlink?(path) && File.size(path) <= self.class::MAX_METADATA_BYTES
+
+      release_metadata(JSON.parse(File.read(path)), target, manifest)
+    rescue DownloadError, JSON::ParserError, IOError, SystemCallError
+      nil
     end
 
     def valid_checksum?(checksum)
@@ -187,7 +230,7 @@ module ManyfoldThumbnails
       end
 
       metadata = JSON.parse(File.read(File.join(directory, "release.json")))
-      return false unless metadata["version"] == version && metadata["target"] == target && metadata["binary"] == "catwalk"
+      return false unless metadata.is_a?(Hash) && metadata["version"] == version && metadata["target"] == target && metadata["binary"] == "catwalk"
 
       binary = File.join(directory, "catwalk")
       return false if (File.stat(binary).mode & 0o111).zero?
@@ -200,8 +243,14 @@ module ManyfoldThumbnails
       false
     end
 
-    def install(destination, target, release, version, deadline)
+    def install(destination, target, manifest, deadline)
+      version = manifest.fetch("version")
       Dir.mktmpdir(".catwalk-", File.dirname(destination)) do |temporary|
+        metadata_path = File.join(temporary, self.class::CACHED_MANIFEST)
+        metadata_url = release_asset_url(manifest, "catwalk3d-#{version}-#{target}.json")
+        download(metadata_url, metadata_path, deadline, limit: self.class::MAX_METADATA_BYTES, kind: "release metadata")
+        release = release_metadata(JSON.parse(File.read(metadata_path)), target, manifest)
+
         archive_path = File.join(temporary, "release.zip")
         checksum = download(release.fetch("url"), archive_path, deadline)
         unless checksum == release.fetch("sha256")
@@ -214,6 +263,8 @@ module ManyfoldThumbnails
         unless verified_installation?(extracted, target, release, version)
           raise DownloadError, "Catwalk release files or metadata failed verification."
         end
+        FileUtils.cp(metadata_path, File.join(extracted, self.class::CACHED_MANIFEST))
+        File.chmod(0o644, File.join(extracted, self.class::CACHED_MANIFEST))
 
         remaining_time(deadline)
         FileUtils.rm_rf(destination)
@@ -221,7 +272,7 @@ module ManyfoldThumbnails
       end
     end
 
-    def download(url, destination, deadline)
+    def download(url, destination, deadline, limit: self.class::MAX_DOWNLOAD_BYTES, kind: "archive")
       uri = validated_uri(url)
       redirects = 0
       loop do
@@ -231,7 +282,7 @@ module ManyfoldThumbnails
           remaining_time(deadline)
           case response.code.to_i
           when 200
-            checksum = save_response(response, destination, deadline)
+            checksum = save_response(response, destination, deadline, limit: limit, kind: kind)
           when 301, 302, 303, 307, 308
             redirects += 1
             raise DownloadError, "Catwalk download exceeded the redirect limit." if redirects > self.class::MAX_REDIRECTS
@@ -250,10 +301,10 @@ module ManyfoldThumbnails
       raise DownloadError, "Invalid Catwalk download redirect."
     end
 
-    def save_response(response, destination, deadline)
+    def save_response(response, destination, deadline, limit:, kind:)
       content_length = response["content-length"] && Integer(response["content-length"], 10)
-      if content_length && (content_length.negative? || content_length > self.class::MAX_DOWNLOAD_BYTES)
-        raise DownloadError, "Catwalk archive exceeds the #{self.class::MAX_DOWNLOAD_BYTES}-byte download limit."
+      if content_length && (content_length.negative? || content_length > limit)
+        raise DownloadError, "Catwalk #{kind} exceeds the #{limit}-byte download limit."
       end
       checksum = Digest::SHA256.new
       bytes = 0
@@ -261,18 +312,18 @@ module ManyfoldThumbnails
         response.read_body do |chunk|
           remaining_time(deadline)
           bytes += chunk.bytesize
-          raise DownloadError, "Catwalk archive exceeds the #{self.class::MAX_DOWNLOAD_BYTES}-byte download limit." if bytes > self.class::MAX_DOWNLOAD_BYTES
+          raise DownloadError, "Catwalk #{kind} exceeds the #{limit}-byte download limit." if bytes > limit
 
           file.write(chunk)
           checksum.update(chunk)
         end
       end
       if content_length && bytes != content_length
-        raise DownloadError, "Catwalk archive download was incomplete."
+        raise DownloadError, "Catwalk #{kind} download was incomplete."
       end
       checksum.hexdigest
     rescue ArgumentError
-      raise DownloadError, "Invalid Catwalk archive content length."
+      raise DownloadError, "Invalid Catwalk #{kind} content length."
     end
 
     def extract(archive_path, destination, target, release, version, deadline)

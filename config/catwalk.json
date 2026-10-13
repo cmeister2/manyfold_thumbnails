@@ -1,32 +1,8 @@
 {
   "version": "2.1.0",
   "repository": "https://github.com/cmeister2/catwalk3d",
-  "targets": {
-    "x86_64-unknown-linux-musl": {
-      "url": "https://github.com/cmeister2/catwalk3d/releases/download/2.1.0/catwalk3d-2.1.0-x86_64-unknown-linux-musl.zip",
-      "sha256": "481c782889891f90abdc0a104224b84d6ef3b0983e52a132b6037ee5cd4c6c77",
-      "files": {
-        "catwalk": "b402f0d06d7317699fd8d6aaff7c269f5e08c7cce535b24d44b6ea87bbd8509b",
-        "README.md": "0ac51461fbe22b643d6d7b04a96a80bedfc141d3c7a6ce77c47f6c39f1a66132",
-        "LICENSE": "28e268c530873be2eafebbde19ecf5ce9116ca6f5fad54d5df28742d8e9855c6",
-        "THIRD_PARTY_LICENSES.html": "dabd91d5433a4e86786c4646943e10752be52aa16f3fbc5388c551c964077b7e",
-        "RUST-LICENSES.html": "5647be074c8edf7339fd863055923a8fc80bc5610a8d4661ec3b767b9d392c27",
-        "release.json": "20c2ed8a2ea5216a5e13632f53ad891136ba6fbd8333ce7101db216adf0efca7",
-        "MUSL-COPYRIGHT": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
-      }
-    },
-    "aarch64-unknown-linux-musl": {
-      "url": "https://github.com/cmeister2/catwalk3d/releases/download/2.1.0/catwalk3d-2.1.0-aarch64-unknown-linux-musl.zip",
-      "sha256": "57939ba2d2ef81b77686b87c6ebebad9eba941794b02960a18822ef2b8953feb",
-      "files": {
-        "catwalk": "092c7b1b406d4da50fedc0d52b95178cd0df6b3a394db019e7639994bfc70af3",
-        "README.md": "0ac51461fbe22b643d6d7b04a96a80bedfc141d3c7a6ce77c47f6c39f1a66132",
-        "LICENSE": "28e268c530873be2eafebbde19ecf5ce9116ca6f5fad54d5df28742d8e9855c6",
-        "THIRD_PARTY_LICENSES.html": "dabd91d5433a4e86786c4646943e10752be52aa16f3fbc5388c551c964077b7e",
-        "RUST-LICENSES.html": "5647be074c8edf7339fd863055923a8fc80bc5610a8d4661ec3b767b9d392c27",
-        "release.json": "c32bd5b94c75b227c7f6f4f1b5e91d17bbeecbbb163a59484b042fadd3732210",
-        "MUSL-COPYRIGHT": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
-      }
-    }
-  }
+  "targets": [
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl"
+  ]
 }

@@ -2,7 +2,7 @@
 
 Generate thumbnails for design files in Manyfold by invoking [Catwalk3D](https://github.com/cmeister2/catwalk3d). Manyfold stores the image as its normal `render` derivative and displays it on file pages and model cards when that file is selected as the preview. Source files are preserved.
 
-The plugin requires **Manyfold 0.151.0 or newer**. It downloads the [pinned Catwalk release](config/catwalk.json) from GitHub for Linux x86_64 or ARM64 when an enabled file first needs a thumbnail. The archive and extracted files are verified against SHA-256 checksums shipped with the plugin. Later thumbnails reuse the downloaded executable. Rendering runs locally on the CPU, without a display server, GPU, CAD installation, or external rendering service.
+The plugin requires **Manyfold 0.151.0 or newer**. It downloads the [configured Catwalk release](config/catwalk.json) from GitHub for Linux x86_64 or ARM64 when an enabled file first needs a thumbnail. It uses Catwalk's published release metadata to verify the archive and extracted files, then caches the metadata and executable for later thumbnails. Rendering runs locally on the CPU, without a display server, GPU, CAD installation, or external rendering service.
 
 ## Examples
 
@@ -149,7 +149,9 @@ Build a ZIP with an explicit plugin version; packaging does not download Catwalk
 python3 bin/package 0.2.0
 ```
 
-The archive is written to `dist/manyfold_thumbnails.zip`; the source gemspec version is unchanged. It contains the plugin code and pinned download manifest. The downloaded Catwalk cache retains its upstream license notices.
+The archive is written to `dist/manyfold_thumbnails.zip`; the source gemspec version is unchanged. It contains the plugin code and Catwalk version configuration. The downloaded Catwalk cache retains its upstream license notices.
+
+Renovate tracks Catwalk's GitHub releases and updates the version in `config/catwalk.json`. Download URLs and checksums come from that version's published metadata, so no checksum pins need updating in this repository. Catwalk updates use separate `fix` commits so merging them publishes a plugin release.
 
 Run `bin/test` with Python 3 and Docker to check downloads, thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Test assets are downloaded separately into ignored `test/vendor/catwalk` storage and mounted into network-isolated test containers; they are never included in the plugin ZIP. Start the development instance with `docker compose up --build -d`, then open <http://localhost:3215>. After code changes, restart it with `docker compose restart manyfold`.
 

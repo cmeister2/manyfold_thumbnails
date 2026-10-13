@@ -1,6 +1,5 @@
 """Check the release ZIP layout using a disposable plugin checkout."""
 from pathlib import Path
-import hashlib
 import json
 import shutil
 import stat
@@ -28,19 +27,17 @@ class PackageTest(unittest.TestCase):
             "lib/manyfold_thumbnails/executable.rb": "# Downloader\n",
             "lib/tasks/manyfold_thumbnails.rake": "# Tasks\n",
         }
-        metadata = {"version": "2.0.0", "targets": {}}
+        metadata = {"version": "2.1.0", "repository": "https://github.com/cmeister2/catwalk3d",
+                    "targets": ["x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"]}
         self.legacy_vendor = {}
-        for target in ("x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"):
+        for target in metadata["targets"]:
             vendor_files = {
                 "catwalk": "#!/bin/sh\nexit 0\n",
                 "LICENSE": "License\n",
                 "THIRD_PARTY_LICENSES.html": "Third-party notices\n",
                 "RUST-LICENSES.html": "Rust notices\n",
                 "MUSL-COPYRIGHT": "Musl notices\n",
-                "release.json": json.dumps({"version": "2.0.0", "target": target, "binary": "catwalk"}),
-            }
-            metadata["targets"][target] = {
-                "files": {name: hashlib.sha256(content.encode()).hexdigest() for name, content in vendor_files.items()}
+                "release.json": json.dumps({"version": "2.1.0", "target": target, "binary": "catwalk"}),
             }
             for name, content in vendor_files.items():
                 self.legacy_vendor[f"lib/manyfold_thumbnails/vendor/{target}/{name}"] = content

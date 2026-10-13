@@ -161,6 +161,16 @@ class ThumbnailsPluginTest
     assert_match(/\.lbrn2/i, document.text)
     assert_match(/not overriding/, document.at_css("#catwalk-active-overrides").text)
 
+    descriptions = document.css("#catwalk-formats tbody .format-description")
+    assert_equal document.css("#catwalk-formats tbody tr").size, descriptions.size
+    assert descriptions.all? { |cell| cell.text.strip.present? && !cell.text.include?("Translation missing") }
+    assert_includes document.at_css('tr[data-mime-type="model/stl"] .format-description').text,
+      "a triangle mesh commonly used for 3D printing"
+    assert_includes document.text, "a laser cutting or engraving design"
+    ManyfoldThumbnails::Formats::CATWALK_EXTENSIONS.each do |extension|
+      assert I18n.exists?("manyfold_thumbnail_formats.#{extension}", :en), "Missing description for .#{extension}"
+    end
+
     session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: ["", Mime[:obj].to_s]}})
     assert_equal 302, session.response.status
     assert_equal [Mime[:obj].to_s], ManyfoldThumbnails::Configuration.enabled_mime_types

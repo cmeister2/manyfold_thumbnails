@@ -42,7 +42,7 @@
                 class: "visually-hidden" %>
             </td>
             <th scope="row"><%= group[:extensions].map { |extension| ".#{extension}" }.join(", ") %></th>
-            <td class="format-description"><%= group[:extensions].map { |extension| t("manyfold_thumbnail_formats.#{extension}") }.uniq.join(" ") %></td>
+            <td class="format-description"><%= t("media_types.#{Mime::Type.lookup(group[:mime_type]).to_sym}") %></td>
             <td><%= group[:core_handler] ? ManyfoldThumbnails::Formats.handler_label(group[:core_handler]) : t(".no_core_provider") %></td>
             <td>
               <% if group[:enabled] %>

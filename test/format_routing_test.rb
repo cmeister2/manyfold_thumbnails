@@ -164,11 +164,13 @@ class ThumbnailsPluginTest
     descriptions = document.css("#catwalk-formats tbody .format-description")
     assert_equal document.css("#catwalk-formats tbody tr").size, descriptions.size
     assert descriptions.all? { |cell| cell.text.strip.present? && !cell.text.include?("Translation missing") }
-    assert_includes document.at_css('tr[data-mime-type="model/stl"] .format-description').text,
-      "a triangle mesh commonly used for 3D printing"
-    assert_includes document.text, "a laser cutting or engraving design"
+    assert_equal "STL", document.at_css('tr[data-mime-type="model/stl"] .format-description').text.strip
+    assert_equal "LightBurn project", document.at_css("tr[data-mime-type='#{Mime[:lbrn2]}'] .format-description").text.strip
+    assert_equal "glTF", document.at_css('tr[data-mime-type="model/gltf"] .format-description').text.strip
+    assert_equal "STEP", document.at_css('tr[data-mime-type="model/step"] .format-description').text.strip
     ManyfoldThumbnails::Formats::CATWALK_EXTENSIONS.each do |extension|
-      assert I18n.exists?("manyfold_thumbnail_formats.#{extension}", :en), "Missing description for .#{extension}"
+      type = Mime::Type.lookup_by_extension(extension).to_sym
+      assert I18n.exists?("media_types.#{type}", :en), "Missing format name for .#{extension}"
     end
 
     session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: ["", Mime[:obj].to_s]}})

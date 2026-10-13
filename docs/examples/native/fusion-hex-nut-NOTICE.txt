@@ -1,0 +1,15 @@
+Retained fixture: fusion-hex-nut.f3d
+Original filename: Day #6 - Hex Nut v2.f3d
+Project: fusion360-sample-modeling
+Author: Samuel Oladosu
+Source commit: 2d19f73689ac133e1f9abc5d6780681268d21808
+Source URL: https://github.com/samueloladosu37/fusion360-sample-modeling/blob/2d19f73689ac133e1f9abc5d6780681268d21808/Day%20%236%20-%20Hex%20Nut%20v2.f3d
+Source README: https://github.com/samueloladosu37/fusion360-sample-modeling/blob/2d19f73689ac133e1f9abc5d6780681268d21808/README.md
+License: The author's README identifies the designs as MIT licensed and permits use, modification and sharing with attribution. The original README is retained as FUSION-SAMPLES-README.md; the upstream repository has no separate LICENSE file.
+SHA-256: 75a1b10b39bc635e3feb61cf571651a7e98ba0f54f664e2d7e4f26be7e4b371b
+
+Copied byte-for-byte from the author-created Autodesk Fusion native document.
+The source author supplies screenshots but no independent STEP/STL exports.
+The stored B-rep is a chamfered hex nut with an analytic cylindrical bore.
+Cosmetic thread marks shown in the author's screenshot are not helical
+B-rep surfaces and are not recreated by the geometry thumbnail renderer.

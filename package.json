@@ -10,11 +10,14 @@
     "node": ">=24.15.0"
   },
   "scripts": {
+    "build:demo": "bin/build-demo",
+    "test:demo": "playwright test --config playwright.demo.config.mjs",
     "release": "semantic-release",
     "release:dry-run": "node bin/release-dry-run.mjs",
     "test:release": "node --test test/release*_test.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@semantic-release/commit-analyzer": "13.0.1",
     "@semantic-release/exec": "7.1.0",
     "@semantic-release/github": "12.0.10",

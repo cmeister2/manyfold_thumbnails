@@ -1,0 +1,13 @@
+Retained fixture: fusion-toy-block.f3d
+Original filename: Day#1 - Toy Block v2.f3d
+Project: fusion360-sample-modeling
+Author: Samuel Oladosu
+Source commit: 2d19f73689ac133e1f9abc5d6780681268d21808
+Source URL: https://github.com/samueloladosu37/fusion360-sample-modeling/blob/2d19f73689ac133e1f9abc5d6780681268d21808/Day%231%20-%20Toy%20Block%20v2.f3d
+Source README: https://github.com/samueloladosu37/fusion360-sample-modeling/blob/2d19f73689ac133e1f9abc5d6780681268d21808/README.md
+License: The author's README identifies the designs as MIT licensed and permits use, modification and sharing with attribution. The original README is retained as FUSION-SAMPLES-README.md; the upstream repository has no separate LICENSE file.
+SHA-256: 7fb14c89f0f2b04657fbdf178f6b2cf9fd902f905fd1687263280ca629e1502f
+
+Copied byte-for-byte from the author-created Autodesk Fusion native document.
+This fixture contains stored B-rep geometry and a Fusion design history. It is
+not an archive constructed around a saved PNG or a neutral interchange file.

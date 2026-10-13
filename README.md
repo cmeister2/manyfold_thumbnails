@@ -25,6 +25,24 @@ These are screenshots of Manyfold 0.151.0's model cards, including the model tit
 
 See [example sources and credits](docs/examples/README.md).
 
+## Browser demo
+
+The [GitHub Pages demo](https://cmeister2.github.io/manyfold_thumbnails/) shows real Manyfold model cards and the plugin's format-settings page. Its gallery includes saved previews, LightBurn drawings and native Inventor and Fusion geometry. Explore the format checkboxes to see which provider would be selected and which built-in providers Catwalk would override.
+
+The demo displays pre-rendered thumbnails. Checkbox changes apply only to its own display; saving settings, uploading files and generating thumbnails require a running Manyfold installation.
+
+Build and try the static site locally:
+
+```sh
+npm ci --ignore-scripts
+npm run build:demo
+node test/demo/serve.mjs dist/demo
+```
+
+Open <http://localhost:4174/manyfold_thumbnails/>. Docker exports the real pages from a disposable Manyfold 0.151.0 instance. The generated site in `dist/demo` runs without Manyfold or a database.
+
+Run `npx playwright install chromium` and `npm run test:demo` to check the demo in Chromium. The GitHub Pages workflow builds and tests pull requests, then publishes the tested site when changes reach `main`.
+
 ## Supported files
 
 This is the complete extension list that can be enabled for Catwalk:
@@ -53,7 +71,7 @@ Catwalk produces a 512 x 512 PNG with a transparent background and a fixed camer
 
 Relative sidecar resources, such as OBJ materials or glTF buffers, can be read when Manyfold supplies the original local path with its extension. Downloaded or extensionless sources are processed as isolated temporary files; object-storage downloads may therefore lack sidecars. Use self-contained files when those resources are needed.
 
-By default, Catwalk handles only formats without another thumbnail provider in the running Manyfold installation. Existing F3D rendering and FreeCAD saved-preview extraction remain selected for their supported types. Enabled Catwalk formats use priority 5, above Manyfold's default model thumbnail providers. The host selects one provider per MIME type; it does not try another provider after an empty result.
+By default, Catwalk handles only formats without another thumbnail provider in the running Manyfold installation. Manyfold's F3D renderer and FreeCAD saved-preview extraction remain selected for their supported types. Enabled Catwalk formats use priority 5, above Manyfold's default model thumbnail providers. The host selects one provider per MIME type; it does not try another provider after an empty result.
 
 ## Install and use
 

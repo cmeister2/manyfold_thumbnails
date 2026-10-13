@@ -2,7 +2,7 @@
 
 The main README shows browser screenshots of complete model cards from the released Manyfold 0.151.0 image, using its normal HTML, CSS and render-derivative routes. The titles and filenames are example metadata saved in Manyfold. Screenshots use Chromium in the default light theme with cards measuring 360 CSS pixels, matching their desktop README display width. Capturing at twice the display resolution keeps the text sharp on high-density screens. The gallery wraps into one column on narrower screens. Each `*-card.png` includes the preview, title, filename caption and action buttons.
 
-The cards use 512 x 512 thumbnail PNGs. The Lychee image was supplied from an existing Manyfold library; the other five were generated with the plugin's pinned Catwalk 2.0.0 executable. Inventor and Fusion use its thumbnail arguments:
+The cards use 512 x 512 thumbnail PNGs. The Lychee image was supplied from an existing Manyfold library; the other five were generated with Catwalk. The plugin's current release pin is recorded in [the download manifest](../../config/catwalk.json). Inventor and Fusion use its thumbnail arguments:
 
 ```sh
 catwalk INPUT --output - --size 512 --transparent > OUTPUT.png

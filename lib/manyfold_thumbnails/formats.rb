@@ -4,7 +4,7 @@ require_relative "configuration"
 
 module ManyfoldThumbnails
   module Formats
-    # Catwalk 2.1.0's model and native-document readers, plus DICOM (which
+    # Catwalk's model and native-document readers, plus DICOM (which
     # Manyfold categorizes as a model). Keep ordinary image handling in core.
     # .bin is deliberately excluded: Manyfold uses its generic document MIME.
     CATWALK_EXTENSIONS = %w[

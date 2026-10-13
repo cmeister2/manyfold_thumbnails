@@ -2,7 +2,7 @@
 
 Generate thumbnails for design files in Manyfold by invoking [Catwalk3D](https://github.com/cmeister2/catwalk3d). Manyfold stores the image as its normal `render` derivative and displays it on file pages and model cards when that file is selected as the preview. Source files are preserved.
 
-The plugin requires **Manyfold 0.151.0 or newer**. It downloads the pinned Catwalk 2.1.0 release from GitHub for Linux x86_64 or ARM64 when an enabled file first needs a thumbnail. The archive and extracted files are verified against SHA-256 checksums shipped with the plugin. Later thumbnails reuse the downloaded executable. Rendering runs locally on the CPU, without a display server, GPU, CAD installation, or external rendering service.
+The plugin requires **Manyfold 0.151.0 or newer**. It downloads the [pinned Catwalk release](config/catwalk.json) from GitHub for Linux x86_64 or ARM64 when an enabled file first needs a thumbnail. The archive and extracted files are verified against SHA-256 checksums shipped with the plugin. Later thumbnails reuse the downloaded executable. Rendering runs locally on the CPU, without a display server, GPU, CAD installation, or external rendering service.
 
 ## Examples
 
@@ -47,11 +47,11 @@ This is the complete extension list that can be enabled for Catwalk:
 | Volumes and medical images | `.nrrd`, `.nhdr`, `.mhd`, `.mha`, `.dcm`, `.vdb` | Geometry or volume rendering, depending on the data. |
 | Other scientific datasets | `.e`, `.ex2`, `.exo`, `.g`, `.nc`, `.cdf`, `.ncdf` | Geometry or volume rendering, depending on the data. |
 
-The list matches [the format registry](lib/manyfold_thumbnails/formats.rb). Reader subsets and limitations are documented in [Catwalk's format coverage](https://github.com/cmeister2/catwalk3d/blob/2.1.0/docs/format-coverage.md). The plugin's fixtures exercise a subset of these readers, rather than every file variant. Ordinary image thumbnails continue to use Manyfold's image handling. Fusion `.f3z` and Lychee `.lyt` are not supported by this plugin.
+The list matches [the format registry](lib/manyfold_thumbnails/formats.rb). Reader subsets and limitations are documented in [Catwalk's format coverage](https://github.com/cmeister2/catwalk3d/blob/main/docs/format-coverage.md). The plugin's fixtures exercise a subset of these readers, rather than every file variant. Ordinary image thumbnails continue to use Manyfold's image handling. Fusion `.f3z` and Lychee `.lyt` are not supported by this plugin.
 
 Catwalk produces a 512 x 512 PNG with a transparent background and a fixed camera. Its normal camera uses an isometric Z-up view; LightBurn uses the XY plane. Manyfold's per-file up-direction setting does not change that camera. Saved images can be missing, blank, or out of date, and file variants unsupported by a reader may still have no thumbnail. A thumbnail does not verify the design's geometry.
 
-Inventor and Fusion geometry fallback reads stored native bodies and supported placements. It does not replay CAD feature history. Unsupported document versions, design history and assembly features may still have no thumbnail; see [Catwalk's native geometry examples and limits](https://github.com/cmeister2/catwalk3d/blob/2.1.0/docs/native-autodesk/README.md).
+Inventor and Fusion geometry fallback reads stored native bodies and supported placements. It does not replay CAD feature history. Unsupported document versions, design history and assembly features may still have no thumbnail; see [Catwalk's native geometry examples and limits](https://github.com/cmeister2/catwalk3d/blob/main/docs/native-autodesk/README.md).
 
 Inventor assemblies that need geometry fallback are given a temporary project containing their current attachment and the same model's native `.ipt` / `.iam` attachments. Filenames and relative directories are preserved, including on object storage; Catwalk resolves and decodes all references. Companion staging is limited to 128 documents and 256 MiB in total and shares the 60-second processing deadline. References above the primary assembly's directory, missing components and ambiguous filenames remain unsupported. A usable saved thumbnail does not require companion staging.
 

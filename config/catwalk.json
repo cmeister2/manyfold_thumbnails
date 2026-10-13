@@ -1,30 +1,30 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "repository": "https://github.com/cmeister2/catwalk3d",
   "targets": {
     "x86_64-unknown-linux-musl": {
-      "url": "https://github.com/cmeister2/catwalk3d/releases/download/2.0.0/catwalk3d-2.0.0-x86_64-unknown-linux-musl.zip",
-      "sha256": "70fdd82515ac0f17880108e3781d5bf926439553df3fdfefa511c2ba49aacc41",
+      "url": "https://github.com/cmeister2/catwalk3d/releases/download/2.1.0/catwalk3d-2.1.0-x86_64-unknown-linux-musl.zip",
+      "sha256": "481c782889891f90abdc0a104224b84d6ef3b0983e52a132b6037ee5cd4c6c77",
       "files": {
-        "catwalk": "3ca9625cf92eb74e8e2a6800dcb9c290c8a0359616f4669336e3eb0439a8679d",
-        "README.md": "4a2d994af650dcacb7e140a01e91c1e8957c6afa9db68d91313e58ede378fb72",
+        "catwalk": "b402f0d06d7317699fd8d6aaff7c269f5e08c7cce535b24d44b6ea87bbd8509b",
+        "README.md": "0ac51461fbe22b643d6d7b04a96a80bedfc141d3c7a6ce77c47f6c39f1a66132",
         "LICENSE": "28e268c530873be2eafebbde19ecf5ce9116ca6f5fad54d5df28742d8e9855c6",
-        "THIRD_PARTY_LICENSES.html": "8a04da370e1f62760cbd7caee65030e3cead2a633d4844b7bccb9f4d7da8af14",
+        "THIRD_PARTY_LICENSES.html": "dabd91d5433a4e86786c4646943e10752be52aa16f3fbc5388c551c964077b7e",
         "RUST-LICENSES.html": "5647be074c8edf7339fd863055923a8fc80bc5610a8d4661ec3b767b9d392c27",
-        "release.json": "eef34031c90e84f2bdfb419965db0175cafe83a86f8598653d13f2a643ea7663",
+        "release.json": "20c2ed8a2ea5216a5e13632f53ad891136ba6fbd8333ce7101db216adf0efca7",
         "MUSL-COPYRIGHT": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
       }
     },
     "aarch64-unknown-linux-musl": {
-      "url": "https://github.com/cmeister2/catwalk3d/releases/download/2.0.0/catwalk3d-2.0.0-aarch64-unknown-linux-musl.zip",
-      "sha256": "3fc2e8b1111aca7f64394965c3ed47de4b3ec78a3f36c1b4699e84f409a29628",
+      "url": "https://github.com/cmeister2/catwalk3d/releases/download/2.1.0/catwalk3d-2.1.0-aarch64-unknown-linux-musl.zip",
+      "sha256": "57939ba2d2ef81b77686b87c6ebebad9eba941794b02960a18822ef2b8953feb",
       "files": {
-        "catwalk": "4a6425d21c23f2d235cbcbcf1f73b0da3eb0969d6f25d8754ac4719a519b994c",
-        "README.md": "4a2d994af650dcacb7e140a01e91c1e8957c6afa9db68d91313e58ede378fb72",
+        "catwalk": "092c7b1b406d4da50fedc0d52b95178cd0df6b3a394db019e7639994bfc70af3",
+        "README.md": "0ac51461fbe22b643d6d7b04a96a80bedfc141d3c7a6ce77c47f6c39f1a66132",
         "LICENSE": "28e268c530873be2eafebbde19ecf5ce9116ca6f5fad54d5df28742d8e9855c6",
-        "THIRD_PARTY_LICENSES.html": "8a04da370e1f62760cbd7caee65030e3cead2a633d4844b7bccb9f4d7da8af14",
+        "THIRD_PARTY_LICENSES.html": "dabd91d5433a4e86786c4646943e10752be52aa16f3fbc5388c551c964077b7e",
         "RUST-LICENSES.html": "5647be074c8edf7339fd863055923a8fc80bc5610a8d4661ec3b767b9d392c27",
-        "release.json": "d091d9e5de80c5979e42e8b6528394b41c991e2592074292e6dfbae555ad6b9d",
+        "release.json": "c32bd5b94c75b227c7f6f4f1b5e91d17bbeecbbb163a59484b042fadd3732210",
         "MUSL-COPYRIGHT": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
       }
     }

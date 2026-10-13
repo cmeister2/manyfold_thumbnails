@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require "json"
+require "zip"
 
 # These exercise Manyfold's actual automatic Shrine download and storage APIs.
-# Native qualification additionally accepts a mounted Catwalk build and the
-# genuine MIT conveyor project retained by Catwalk's integration fixtures.
+# Native qualification uses the pinned Catwalk release and original licensed
+# documents. A mounted Catwalk build can also qualify a future source change.
 class ThumbnailsPluginTest
   def test_assembly_companions_are_staged_during_normal_background_promotion
     qualify_assembly_workflow(model: @model)
@@ -30,6 +32,68 @@ class ThumbnailsPluginTest
         assembly = qualify_native_conveyor(model: model, fixture_directory: fixture_directory)
         assert memory.exists?(assembly.attachment(:render).id)
       end
+    end
+  end
+
+  def test_native_part_background_promotion_renders_genuine_box_geometry
+    with_native_assembly_runtime do |fixture_directory|
+      filename = "box.ipt"
+      path = File.join(fixture_directory, filename)
+      source = File.binread(path)
+      expected_render = forced_native_render(path)
+      file, = ingest(filename: filename, source: source)
+      assert_native_render(file, expected_render)
+      assert_equal source, file.attachment.read
+    end
+  end
+
+  def test_native_fusion_background_promotion_falls_back_when_saved_images_are_missing
+    with_native_assembly_runtime do
+      original = File.join(__dir__, "fixtures/native_geometry/fusion-toy-block.f3d")
+      path = File.join(@directory, "fusion-no-images.f3d")
+      retained = {}
+      removed_images = []
+      Zip::File.open(original) do |archive|
+        Zip::OutputStream.open(path) do |output|
+          archive.each do |entry|
+            if entry.name.downcase.end_with?(".png")
+              removed_images << entry.name
+              next
+            end
+
+            bytes = entry.directory? ? "".b : entry.get_input_stream.read
+            retained[entry.name] = Digest::SHA256.hexdigest(bytes)
+            output.put_next_entry(entry.name)
+            output.write(bytes) unless entry.directory?
+          end
+        end
+      end
+      refute_empty removed_images, "The original Fusion document must contain a saved image."
+      Zip::File.open(path) do |archive|
+        assert_equal retained.keys.sort, archive.entries.map(&:name).sort
+        archive.each do |entry|
+          bytes = entry.directory? ? "".b : entry.get_input_stream.read
+          assert_equal retained.fetch(entry.name), Digest::SHA256.hexdigest(bytes),
+            "Removing previews must preserve all native document members."
+        end
+      end
+      expected_render = forced_native_render(path)
+      source = File.binread(path)
+      file, = ingest(filename: File.basename(path), source: source)
+      assert_native_render(file, expected_render)
+      assert_equal source, file.attachment.read
+    end
+  end
+
+  def test_genuine_native_fixture_hashes_match_original_producer_documents
+    directory = File.join(__dir__, "fixtures/native_geometry")
+    records = JSON.parse(File.read(File.join(directory, "provenance.json")))
+    assert_equal 6, records.length
+    records.each do |record|
+      path = File.join(directory, record.fetch("file"))
+      assert_equal record.fetch("bytes"), File.size(path)
+      assert_equal record.fetch("sha256"), Digest::SHA256.file(path).hexdigest
+      assert File.file?(File.join(directory, record.fetch("license_file")))
     end
   end
 
@@ -91,10 +155,11 @@ class ThumbnailsPluginTest
 
   def with_native_assembly_runtime
     original_binary = ENV["MANYFOLD_THUMBNAILS_CATWALK"]
-    binary = ENV["MANYFOLD_THUMBNAILS_NATIVE_CATWALK"]
-    fixtures = ENV["MANYFOLD_THUMBNAILS_NATIVE_INVENTOR_FIXTURES"]
-    skip "Mount a native Catwalk build and its genuine Inventor conveyor fixtures to qualify geometry." unless
-      binary && File.executable?(binary) && fixtures && File.file?(File.join(fixtures, "conveyor_model.iam"))
+    binary = ENV["MANYFOLD_THUMBNAILS_NATIVE_CATWALK"] || ManyfoldThumbnails::Catwalk.binary
+    fixtures = ENV["MANYFOLD_THUMBNAILS_NATIVE_INVENTOR_FIXTURES"] ||
+      File.join(__dir__, "fixtures/native_geometry/conveyor")
+    assert File.executable?(binary), "Native qualification requires the actual Catwalk executable."
+    assert File.file?(File.join(fixtures, "conveyor_model.iam")), "Genuine assembly fixtures must be available."
 
     ENV["MANYFOLD_THUMBNAILS_CATWALK"] = binary
     yield fixtures
@@ -114,22 +179,31 @@ class ThumbnailsPluginTest
     filename = "conveyor_model.iam"
     source = File.binread(File.join(fixture_directory, filename))
     original_sources[filename] = source
-    expected_render, diagnostic, status = Open3.capture3(ManyfoldThumbnails::Catwalk.binary,
-      File.join(fixture_directory, filename), "--render-geometry", "--output", "-",
-      "--size", "512", "--transparent")
-    assert status.success?, "The genuine geometry fixture must render directly: #{diagnostic}"
+    expected_render = forced_native_render(File.join(fixture_directory, filename))
     assembly, = ingest(model: model, filename: filename, source: source)
     assert assembly.has_render?, "Native Catwalk must render the genuine companion-backed assembly."
-    render = assembly.attachment(:render)
-    assert_equal "image/png", render.mime_type
-    actual_render = render.read
-    assert_equal [512, 512], actual_render.byteslice(16, 8).unpack("NN")
-    assert_equal Digest::SHA256.hexdigest(expected_render), Digest::SHA256.hexdigest(actual_render),
-      "Automatic promotion must produce Catwalk's fresh native geometry render."
+    assert_native_render(assembly, expected_render)
     model.model_files.each do |file|
       assert_equal original_sources.fetch(file.filename), file.attachment.read,
         "Rendering must preserve each original native document."
     end
     assembly
+  end
+
+  def forced_native_render(path)
+    render, diagnostic, status = Open3.capture3(ManyfoldThumbnails::Catwalk.binary,
+      path, "--render-geometry", "--output", "-", "--size", "512", "--transparent")
+    assert status.success?, "The genuine geometry fixture must render directly: #{diagnostic}"
+    render
+  end
+
+  def assert_native_render(file, expected)
+    assert file.has_render?, "Automatic promotion must generate a native geometry thumbnail."
+    render = file.attachment(:render)
+    assert_equal "image/png", render.mime_type
+    actual = render.read
+    assert_equal [512, 512], actual.byteslice(16, 8).unpack("NN")
+    assert_equal Digest::SHA256.hexdigest(expected), Digest::SHA256.hexdigest(actual),
+      "Automatic promotion must produce Catwalk's fresh native geometry render."
   end
 end

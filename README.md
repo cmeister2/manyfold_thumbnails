@@ -56,6 +56,10 @@ This is the complete extension list that can be enabled for Catwalk:
 | FreeCAD | `.fcstd` | Saved preview, then supported geometry. |
 | Lychee | `.lys` | Saved preview, then supported geometry. |
 | Autodesk Fusion | `.f3d` | Saved preview, then supported native geometry. |
+| 3ds Max | `.max` | Saved preview only. |
+| Rhino | `.3dm` | Saved viewport preview only. |
+| SketchUp | `.skp` | Saved preview only. |
+| SolidWorks | `.sldprt`, `.sldasm` | Saved preview only. |
 | Mesh and interchange formats | `.stl`, `.obj`, `.ply`, `.off`, `.3mf`, `.amf`, `.dae`, `.3ds`, `.wrl`, `.vrml`, `.x`, `.drc`, `.fbx`, `.mdl` | Geometry rendering. |
 | CAD and building models | `.step`, `.stp`, `.stpnc`, `.p21`, `.210`, `.iges`, `.igs`, `.brep`, `.xbf`, `.ifc`, `.dxf` | Geometry rendering. |
 | Scenes and scene archives | `.gltf`, `.glb`, `.usd`, `.usda`, `.usdc`, `.usdz`, `.abc`, `.slpk` | Geometry rendering. |
@@ -153,7 +157,11 @@ The archive is written to `dist/manyfold_thumbnails.zip`; the source gemspec ver
 
 Renovate tracks Catwalk's GitHub releases and updates the version in `config/catwalk.json`. Download URLs and checksums come from that version's published metadata, so no checksum pins need updating in this repository. Catwalk updates use separate `fix` commits so merging them publishes a plugin release.
 
-Run `bin/test` with Python 3 and Docker to check downloads, thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Test assets are downloaded separately into ignored `test/vendor/catwalk` storage and mounted into network-isolated test containers; they are never included in the plugin ZIP. Start the development instance with `docker compose up --build -d`, then open <http://localhost:3215>. After code changes, restart it with `docker compose restart manyfold`.
+Run `bin/test` with Python 3 and Docker to check downloads, thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Test assets are downloaded separately into ignored `test/vendor/catwalk` storage and mounted into network-isolated test containers; they are never included in the plugin ZIP.
+
+CI runs `bin/check-catwalk-formats` against the verified pinned executable's `--list-formats` output and requires every upstream extension to appear in either `CATWALK_EXTENSIONS` or the explicit `CATWALK_EXCLUDED_EXTENSIONS` list. Added, removed or renamed extensions fail the check, including on Renovate updates, until the registry and documented support are reviewed.
+
+Start the development instance with `docker compose up --build -d`, then open <http://localhost:3215>. After code changes, restart it with `docker compose restart manyfold`.
 
 Releases use Conventional Commits and tags named `X.Y.Z`. The original template HEAD is tagged `0.0.0`, so the first thumbnail feature commit releases as `0.1.0`. Earlier Cults3D release tags are preserved locally as `template-vX.Y.Z` and are not published as thumbnail versions. Release analysis and notes exclude history inherited from the earlier Cults3D plugin. Release tooling requires Node 24.15 or newer:
 

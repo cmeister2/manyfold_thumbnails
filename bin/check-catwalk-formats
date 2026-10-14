@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Check the pinned Catwalk's reader extensions against the plugin registry."""
+import argparse
+from pathlib import Path
+import platform
+import re
+import subprocess
+
+
+REQUIRED_READER_GROUPS = {
+    "Implemented model readers",
+    "Implemented image readers",
+    "Saved-preview readers",
+    "Native document geometry readers (qualified subsets)",
+}
+
+
+def parse_catwalk_formats(output):
+    groups = set()
+    extensions = set()
+    for line in output.splitlines():
+        if "readers" not in line:
+            continue
+        match = re.fullmatch(r"(.+ readers(?: \([^()]+\))?): ([a-z0-9]+(?:, [a-z0-9]+)*)", line)
+        if not match or match[1] in groups:
+            raise ValueError(f"Malformed Catwalk --list-formats reader group: {line!r}")
+        groups.add(match[1])
+        extensions.update(match[2].split(", "))
+    missing = REQUIRED_READER_GROUPS - groups
+    if missing:
+        raise ValueError(f"Missing Catwalk --list-formats reader groups: {', '.join(sorted(missing))}")
+    return extensions
+
+
+def read_registry(path):
+    source = path.read_text(encoding="utf-8")
+    registry = []
+    for constant in ("CATWALK_EXTENSIONS", "CATWALK_EXCLUDED_EXTENSIONS"):
+        matches = re.findall(rf"\b{constant}\s*=\s*%w\[(.*?)\]", source, re.DOTALL)
+        if len(matches) != 1:
+            raise ValueError(f"Expected one {constant} list in {path}")
+        values = matches[0].split()
+        if not values or any(not re.fullmatch(r"[a-z0-9]+", value) for value in values):
+            raise ValueError(f"Invalid extensions in {constant} in {path}")
+        if len(values) != len(set(values)):
+            raise ValueError(f"Duplicate extensions in {constant} in {path}")
+        registry.append(set(values))
+    return registry
+
+
+def check_formats(upstream, supported, excluded):
+    differences = {
+        "Registered and excluded": supported & excluded,
+        "Unreviewed Catwalk extensions": upstream - supported - excluded,
+        "Registered extensions absent from Catwalk": supported - upstream,
+        "Excluded extensions absent from Catwalk": excluded - upstream,
+    }
+    errors = [f"  {label}: {', '.join(sorted(values))}" for label, values in differences.items() if values]
+    if errors:
+        raise ValueError(
+            "Catwalk format coverage differs from lib/manyfold_thumbnails/formats.rb:\n"
+            + "\n".join(errors)
+            + "\nReview CATWALK_EXTENSIONS and CATWALK_EXCLUDED_EXTENSIONS, then update the supported files documentation."
+        )
+
+
+def host_binary(root):
+    machine = platform.machine().lower()
+    architectures = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
+    if platform.system() != "Linux" or machine not in architectures:
+        raise ValueError("No pinned Linux Catwalk binary for this host; supply --binary explicitly.")
+    return root / "test/vendor/catwalk" / f"{architectures[machine]}-unknown-linux-musl" / "catwalk"
+
+
+def catwalk_extensions(binary):
+    try:
+        result = subprocess.run([str(binary), "--list-formats"], check=True, capture_output=True, text=True, timeout=30)
+    except subprocess.CalledProcessError as error:
+        raise ValueError(f"Catwalk --list-formats failed (exit {error.returncode}): {error.stderr.strip()}") from error
+    return parse_catwalk_formats(result.stdout)
+
+
+def main():
+    root = Path(__file__).resolve().parents[1]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--binary", type=Path, help="Use this executable instead of the verified host test asset.")
+    args = parser.parse_args()
+    binary = args.binary if args.binary is not None else host_binary(root)
+    supported, excluded = read_registry(root / "lib/manyfold_thumbnails/formats.rb")
+    check_formats(catwalk_extensions(binary), supported, excluded)
+    print(f"Catwalk format coverage verified ({len(supported)} registered, {len(excluded)} excluded extensions).")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise SystemExit(str(error))

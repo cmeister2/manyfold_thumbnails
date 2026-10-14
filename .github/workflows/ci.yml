@@ -26,7 +26,8 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run test:release
-      - run: bin/test
+      - name: Check Catwalk formats and test plugin and package
+        run: bin/test
 
   release:
     name: Preview or publish plugin release

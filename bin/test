@@ -6,5 +6,6 @@ plugin_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 python3 -B -m unittest discover -s "$plugin_root/test" -p '*_test.py'
 
 "$plugin_root/bin/fetch-test-catwalk"
+python3 -B "$plugin_root/bin/check-catwalk-formats"
 "$plugin_root/test/run-container" "$plugin_root"
 python3 -B "$plugin_root/test/package_run.py"

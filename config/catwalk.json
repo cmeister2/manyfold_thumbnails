@@ -1,5 +1,5 @@
 {
-  "version": "2.3.2",
+  "version": "2.4.0",
   "repository": "https://github.com/cmeister2/catwalk3d",
   "targets": [
     "x86_64-unknown-linux-musl",

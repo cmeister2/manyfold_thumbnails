@@ -117,6 +117,50 @@ class ThumbnailsPluginTest < Minitest::Test
     end
   end
 
+  def test_catwalk_generates_new_native_saved_previews_on_normal_promotion
+    {
+      "scene.MAX" => ["application/x-3dsmax", CatwalkFixture.max],
+      "model.3dm" => ["model/3dm", CatwalkFixture.rhino],
+      "model.skp" => ["model/x-sketchup", CatwalkFixture.sketchup],
+      "part.sldprt" => ["model/x-solidworks-part", CatwalkFixture.solidworks],
+      "assembly.sldasm" => ["model/x-solidworks-assembly", CatwalkFixture.solidworks]
+    }.each do |filename, (mime_type, source)|
+      file, = ingest(filename: filename, source: source)
+      assert_equal mime_type, file.mime_type.to_s, filename
+      assert file.is_3d_model?, "#{filename} should be categorized as a model."
+      assert_equal FileHandlers::CatwalkThumbnailer,
+        FileHandlers.handlers_for(environment: :thumbnail, mime_type: file.mime_type).first
+      assert file.has_render?, "#{filename} should have a Catwalk saved-preview render."
+      render = file.attachment(:render)
+      assert_equal @library.storage_key, render.storage_key
+      assert_equal "image/png", render.mime_type
+      assert_equal [512, 512], render.read.byteslice(16, 8).unpack("NN")
+      assert_equal source, file.attachment.read
+      assert_equal Digest::SHA256.hexdigest(source),
+        Digest::SHA256.file(File.join(@directory, @model.path, file.filename)).hexdigest
+      assert_empty file.attachment_derivatives.keys - [:render]
+    end
+  end
+
+  def test_solidworks_part_and_assembly_have_independent_mime_settings
+    [:sldprt, :sldasm].each do |extension|
+      group = ManyfoldThumbnails::Formats.catwalk_groups.find do |entry|
+        entry.fetch(:mime_type) == Mime[extension].to_s
+      end
+      assert_equal [extension.to_s], group.fetch(:extensions)
+      assert group.fetch(:enabled)
+    end
+    refute_equal Mime[:sldprt], Mime[:sldasm]
+
+    ManyfoldThumbnails::Configuration.update!(enabled_mime_types:
+      ManyfoldThumbnails::Configuration.enabled_mime_types - [Mime[:sldprt].to_s])
+    part, source = ingest(filename: "disabled.sldprt", source: CatwalkFixture.solidworks)
+    refute part.has_render?
+    assert_equal source, part.attachment.read
+    assembly, = ingest(filename: "enabled.sldasm", source: CatwalkFixture.solidworks)
+    assert assembly.has_render?
+  end
+
   def test_catwalk_render_appears_on_the_lightburn_file_page_and_model_card
     file, = ingest(filename: "drawing.lbrn2", source: CatwalkFixture::LIGHTBURN)
     @model.update!(preview_file: file)

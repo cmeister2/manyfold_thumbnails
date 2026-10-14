@@ -6,14 +6,19 @@ module ManyfoldThumbnails
   module Formats
     # Catwalk's model and native-document readers, plus DICOM (which
     # Manyfold categorizes as a model). Keep ordinary image handling in core.
-    # .bin is deliberately excluded: Manyfold uses its generic document MIME.
     CATWALK_EXTENSIONS = %w[
       ipt iam
       stl obj ply off pts ptx pcd splat gltf glb 3mf vtk vtp vtu vtr vts vtm
       dae las laz step stp stpnc p21 210 mdl 3ds wrl vrml gml usd usda usdc
       usdz spz vti nrrd nhdr mhd mha dxf bpf qi sbet csd x drc fbx vtkhdf
       e ex2 exo g nc cdf ncdf slpk abc ifc vdb iges igs brep xbf amf lys
-      fcstd blend lbrn lbrn2 dwg f3d dcm
+      fcstd blend lbrn lbrn2 dwg f3d dcm max 3dm skp sldprt sldasm
+    ].freeze
+    # Explicitly reviewed exclusions for the CI reader check. Ordinary images,
+    # including TIFF stacks, keep Manyfold's image handling; .bin uses its
+    # generic document MIME and cannot safely select a TerraScan reader.
+    CATWALK_EXCLUDED_EXTENSIONS = %w[
+      bin bmp exr hdr jpeg jpg png tga tif tiff webp
     ].freeze
     EXTENSIONS = CATWALK_EXTENSIONS
 

@@ -1,0 +1,73 @@
+{
+  "repository": "https://github.com/guoxxiong/Power-Package",
+  "commit": "bc6b8d0ca0fe472a4f0ed91c9e64f986b3ddc7e6",
+  "license": "MIT (POWER-PACKAGE-LICENSE.txt)",
+  "files": [
+    {
+      "file": "frontface.SLDPRT",
+      "source_name": "frontface.SLDPRT",
+      "bytes": 740352,
+      "sha256": "9e7093fc1e3a6a3c80e82e274f76a8b63d157ac9594d83e2e6221416215f3140"
+    },
+    {
+      "file": "松下38AH.SLDPRT",
+      "source_name": "松下38AH.SLDPRT",
+      "bytes": 195584,
+      "sha256": "3c078b467d0b55da33ae36c91c30244e86ab5c7f80e2fffd7d7c27441ce61846"
+    },
+    {
+      "file": "空开.SLDPRT",
+      "source_name": "空开.SLDPRT",
+      "bytes": 270848,
+      "sha256": "f5f56d0e6d5af88203d19f4953d5ff4968f3458b0a263f8bdc46ef6082930492"
+    },
+    {
+      "file": "空开支架.SLDPRT",
+      "source_name": "空开支架.SLDPRT",
+      "bytes": 184320,
+      "sha256": "0c8f5889a49525196e1979a32975a97fde0b5fd733bffe91eecfe3c146729f96"
+    },
+    {
+      "file": "稳压器.SLDPRT",
+      "source_name": "稳压器.SLDPRT",
+      "bytes": 294400,
+      "sha256": "604398251c1b24aba957b47a87662e7bd6b65cce75c1644ee9049c0f32ab089c"
+    },
+    {
+      "file": "车载电源接口.SLDPRT",
+      "source_name": "车载电源接口.SLDPRT",
+      "bytes": 440320,
+      "sha256": "8d58f916900566daddef55e32fc439cc8e227666eebb86aa1df11d60469e8aaa"
+    },
+    {
+      "file": "显示器电源接口.SLDPRT",
+      "source_name": "显示器电源接口.SLDPRT",
+      "bytes": 237056,
+      "sha256": "8e693316951a4ae85921532af8ddce18fc5de397a1d8d9128c8b8587227c0f76"
+    }
+  ],
+  "about_solid_box": {
+    "dimensions_mm": [
+      290,
+      200,
+      230
+    ],
+    "volume_mm3": 13340000,
+    "surface_area_mm2": 341400,
+    "witness": "Native swXmlContents/KeyWords extrusion depth D1=200 and Sketch D1=290,D2=230."
+  },
+  "assembly_occurrences": 9,
+  "assembly_bounds_mm": [
+    [
+      -181.4444104593682,
+      -109.1476130969224,
+      207.0000000000001
+    ],
+    [
+      175.3097593849378,
+      90.85243690307762,
+      437.0000000000001
+    ]
+  ],
+  "assembly_witness": "Unmodified producer component-instance XML root swModel swBoundingBox, joins and swTransform matrices, converted from metres."
+}

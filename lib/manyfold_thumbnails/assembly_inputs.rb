@@ -5,13 +5,21 @@ require "timeout"
 require "tmpdir"
 
 module ManyfoldThumbnails
-  # Materialize named Inventor attachments for Catwalk; parsing stays in Catwalk.
+  # Materialize named assembly attachments for Catwalk; parsing stays in Catwalk.
   class AssemblyInputs
+    COMPANION_EXTENSIONS = {
+      "iam" => %w[.ipt .iam].freeze,
+      "sldasm" => %w[.sldprt .sldasm].freeze
+    }.freeze
     MAX_FILES = 128
     MAX_SOURCE_BYTES = 256 * 1024 * 1024
     MAX_PATH_BYTES = 4096
     MAX_PATH_COMPONENTS = 64
     class Error < StandardError; end
+
+    def self.assembly?(extension)
+      COMPANION_EXTENSIONS.key?(extension)
+    end
 
     def self.applicable?(record)
       record.respond_to?(:model) && record.model&.respond_to?(:model_files)
@@ -21,6 +29,7 @@ module ManyfoldThumbnails
       @file = file
       @record = record
       @deadline = deadline
+      @project = "Assembly project"
     end
 
     def with_files
@@ -43,20 +52,23 @@ module ManyfoldThumbnails
 
     def prepare(directory)
       primary_name = safe_filename(@record.filename)
+      extension = File.extname(primary_name).delete_prefix(".").downcase
+      @extensions = COMPANION_EXTENSIONS.fetch(extension)
+      @project = (extension == "iam") ? "Inventor project" : "SolidWorks project"
       documents = [[primary_name, nil]]
       names = {primary_name.downcase => true}
       directories = {}
       check_directories!(primary_name, directories)
       native_records.each do |record|
         next if primary_record?(record)
-        next unless %w[.ipt .iam].include?(File.extname(record.filename.to_s).downcase)
+        next unless @extensions.include?(File.extname(record.filename.to_s).downcase)
 
         attachment = record.attachment
         next unless attachment
 
         name = safe_filename(record.filename)
-        raise Error, "Inventor project has duplicate component filenames: #{name}" if names[name.downcase]
-        raise Error, "Inventor project exceeds the #{self.class::MAX_FILES}-document limit." if documents.length >= self.class::MAX_FILES
+        raise Error, "#{@project} has duplicate component filenames: #{name}" if names[name.downcase]
+        raise Error, "#{@project} exceeds the #{self.class::MAX_FILES}-document limit." if documents.length >= self.class::MAX_FILES
 
         check_directories!(name, directories)
         names[name.downcase] = true
@@ -67,7 +79,7 @@ module ManyfoldThumbnails
         parts = name.split("/")
         (1...parts.length).each do |length|
           if names[parts.first(length).join("/")]
-            raise Error, "Inventor project has conflicting file and directory names."
+            raise Error, "#{@project} has conflicting file and directory names."
           end
         end
       end
@@ -92,14 +104,14 @@ module ManyfoldThumbnails
     rescue Error, Timeout::Error
       raise
     rescue StandardError => error
-      raise Error, "Could not prepare Inventor project attachments: #{error.message}"
+      raise Error, "Could not prepare #{@project} attachments: #{error.message}"
     end
 
     def native_records
       records = @record.model.model_files
       return records unless records.respond_to?(:where) && records.respond_to?(:limit)
 
-      records.where("LOWER(filename) LIKE ? OR LOWER(filename) LIKE ?", "%.ipt", "%.iam")
+      records.where("LOWER(filename) LIKE ? OR LOWER(filename) LIKE ?", *@extensions.map { |extension| "%#{extension}" })
         .where.not(attachment_data: nil).limit(self.class::MAX_FILES + 1)
     end
 
@@ -114,7 +126,7 @@ module ManyfoldThumbnails
         directory = parts.first(length).join("/")
         existing = directories[directory.downcase]
         if existing && existing != directory
-          raise Error, "Inventor project has ambiguous directory capitalization."
+          raise Error, "#{@project} has ambiguous directory capitalization."
         end
         directories[directory.downcase] = directory
       end
@@ -123,13 +135,13 @@ module ManyfoldThumbnails
     def safe_filename(filename)
       unless filename.is_a?(String) && filename.valid_encoding? &&
           filename.bytesize.positive? && filename.bytesize <= self.class::MAX_PATH_BYTES && !filename.include?("\0")
-        raise Error, "Inventor project has an invalid component filename."
+        raise Error, "#{@project} has an invalid component filename."
       end
       name = filename.tr("\\", "/")
       parts = name.split("/", -1)
       if name.start_with?("/") || parts.length > self.class::MAX_PATH_COMPONENTS ||
           parts.any? { |part| part.empty? || part == "." || part == ".." || part.include?(":") }
-        raise Error, "Inventor project filenames must be relative paths without traversal."
+        raise Error, "#{@project} filenames must be relative paths without traversal."
       end
 
       name
@@ -137,13 +149,13 @@ module ManyfoldThumbnails
 
     def check_size!(size)
       if size > self.class::MAX_SOURCE_BYTES
-        raise Error, "Inventor project exceeds the #{self.class::MAX_SOURCE_BYTES}-byte source limit."
+        raise Error, "#{@project} exceeds the #{self.class::MAX_SOURCE_BYTES}-byte source limit."
       end
     end
 
     def source_size(source)
       size = source.size.to_i
-      raise Error, "Inventor project has a negative declared source size." if size.negative?
+      raise Error, "#{@project} has a negative declared source size." if size.negative?
 
       size
     end

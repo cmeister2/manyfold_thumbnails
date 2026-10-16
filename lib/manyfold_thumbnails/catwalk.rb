@@ -80,7 +80,7 @@ module ManyfoldThumbnails
 
     def run_with_project_retry(binary, extension, deadline)
       result = with_input(extension, deadline) { |path| run(binary, path, deadline) }
-      return result if result.last == 0 || extension != "iam" || !AssemblyInputs.applicable?(@record)
+      return result if result.last == 0 || !AssemblyInputs.assembly?(extension) || !AssemblyInputs.applicable?(@record)
 
       # Catwalk can use a saved image without loading any original components.
       # Only an unsuccessful ordinary call needs a named companion project.

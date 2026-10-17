@@ -7,7 +7,7 @@ require "fileutils"
 require_relative "support/temporary_method"
 require_relative "../lib/manyfold_thumbnails/assembly_inputs"
 
-class AssemblyInputsTest < Minitest::Test
+module AssemblyInputsContract
   include TemporaryMethod
 
   Model = Struct.new(:model_files)
@@ -39,7 +39,7 @@ class AssemblyInputsTest < Minitest::Test
   def setup
     @source = StringIO.new("current primary bytes")
     @model = Model.new([])
-    @record = Record.new(1, "Main.IAM", Attachment.new("old attachment bytes"), @model)
+    @record = Record.new(1, "Main.#{assembly_extension.upcase}", Attachment.new("old attachment bytes"), @model)
     @model.model_files << @record
     @staged_directory = nil
   end
@@ -50,7 +50,7 @@ class AssemblyInputsTest < Minitest::Test
 
   def add(filename, bytes = "native companion", **options)
     attachment = Attachment.new(bytes, **options)
-    Record.new(@model.model_files.length + 1, filename, attachment, @model).tap { @model.model_files << it }
+    Record.new(@model.model_files.length + 1, filename, attachment, @model).tap { |record| @model.model_files << record }
   end
 
   def stage(klass: ManyfoldThumbnails::AssemblyInputs, seconds: 5, &block)
@@ -75,13 +75,13 @@ class AssemblyInputsTest < Minitest::Test
   end
 
   def test_current_primary_and_remote_companions_keep_original_case_and_paths
-    @record.filename = "Assembly/Main.IAM"
-    part = add("Assembly/Part.IPT", "remote part bytes")
-    child = add("Assembly/Subgroup/Child.iam", "remote assembly bytes")
+    @record.filename = "Assembly/Main.#{assembly_extension.upcase}"
+    part = add("Assembly/Part.#{part_extension.upcase}", "remote part bytes")
+    child = add("Assembly/Subgroup/Child.#{assembly_extension}", "remote assembly bytes")
     image = add("unrelated.png", "unrelated image")
     @source.read(3)
     result = stage do |input|
-      assert_equal File.join(@staged_directory, "Assembly/Main.IAM"), input
+      assert_equal File.join(@staged_directory, "Assembly/Main.#{assembly_extension.upcase}"), input
       assert_equal "current primary bytes", File.binread(input)
       assert_equal "remote part bytes", File.binread(File.join(@staged_directory, part.filename))
       assert_equal "remote assembly bytes", File.binread(File.join(@staged_directory, child.filename))
@@ -98,16 +98,16 @@ class AssemblyInputsTest < Minitest::Test
 
   def test_isolated_shrine_tempfile_is_copied_to_the_original_assembly_name
     Dir.mktmpdir("shrine-original-") do |directory|
-      original = File.join(directory, "shrine-random.iam")
+      original = File.join(directory, "shrine-random.#{assembly_extension}")
       File.binwrite(original, "isolated original")
       File.open(original, "rb") do |source|
         @source = source
-        add("Part.ipt", "named companion")
+        add("Part.#{part_extension}", "named companion")
         stage do |input|
           refute_equal original, input
-          assert_equal "Main.IAM", File.basename(input)
+          assert_equal "Main.#{assembly_extension.upcase}", File.basename(input)
           assert_equal "isolated original", File.binread(input)
-          assert_equal "named companion", File.binread(File.join(File.dirname(input), "Part.ipt"))
+          assert_equal "named companion", File.binread(File.join(File.dirname(input), "Part.#{part_extension}"))
         end
         assert_equal 0, source.pos
       end
@@ -116,28 +116,28 @@ class AssemblyInputsTest < Minitest::Test
   end
 
   def test_equal_basenames_in_distinct_folders_are_preserved_without_flattening
-    add("one/bolt.ipt", "first prototype")
-    add("two/bolt.ipt", "second prototype")
+    add("one/bolt.#{part_extension}", "first prototype")
+    add("two/bolt.#{part_extension}", "second prototype")
     stage do |_|
-      assert_equal "first prototype", File.binread(File.join(@staged_directory, "one/bolt.ipt"))
-      assert_equal "second prototype", File.binread(File.join(@staged_directory, "two/bolt.ipt"))
-      refute File.exist?(File.join(@staged_directory, "bolt.ipt"))
+      assert_equal "first prototype", File.binread(File.join(@staged_directory, "one/bolt.#{part_extension}"))
+      assert_equal "second prototype", File.binread(File.join(@staged_directory, "two/bolt.#{part_extension}"))
+      refute File.exist?(File.join(@staged_directory, "bolt.#{part_extension}"))
     end
   end
 
   def test_nested_primary_and_sibling_project_directories_keep_their_original_relationship
-    @record.filename = "Assemblies/Main.iam"
-    add("Parts/Part.ipt", "part outside assembly directory")
+    @record.filename = "Assemblies/Main.#{assembly_extension}"
+    add("Parts/Part.#{part_extension}", "part outside assembly directory")
     stage do |input|
       assert_equal "part outside assembly directory",
-        File.binread(File.join(File.dirname(input), "../Parts/Part.ipt"))
-      refute File.exist?(File.join(File.dirname(input), "Part.ipt"))
+        File.binread(File.join(File.dirname(input), "../Parts/Part.#{part_extension}"))
+      refute File.exist?(File.join(File.dirname(input), "Part.#{part_extension}"))
     end
   end
 
   def test_case_colliding_directory_components_are_rejected_before_download
-    add("Parts/one.ipt")
-    conflicting = add("parts/two.ipt")
+    add("Parts/one.#{part_extension}")
+    conflicting = add("parts/two.#{part_extension}")
     error = assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) { stage { flunk "must not render" } }
     assert_includes error.message, "capitalization"
     assert_equal 0, conflicting.attachment.opens
@@ -150,8 +150,8 @@ class AssemblyInputsTest < Minitest::Test
   end
 
   def test_absolute_traversal_and_ambiguous_component_paths_fail_before_reading_attachments
-    ["/outside.ipt", "../outside.ipt", "part/../outside.ipt", "C:\\outside.ipt", "C:outside.ipt",
-      "\\\\server\\share\\outside.ipt", "part//outside.ipt", "part/./outside.ipt", "bad\0.ipt"].each do |name|
+    ["/outside.#{part_extension}", "../outside.#{part_extension}", "part/../outside.#{part_extension}", "C:\\outside.#{part_extension}", "C:outside.#{part_extension}",
+      "\\\\server\\share\\outside.#{part_extension}", "part//outside.#{part_extension}", "part/./outside.#{part_extension}", "bad\0.#{part_extension}"].each do |name|
       @model.model_files = [@record]
       record = add(name)
       assert_raises(ManyfoldThumbnails::AssemblyInputs::Error, name) { stage { flunk "must not render" } }
@@ -161,42 +161,42 @@ class AssemblyInputsTest < Minitest::Test
   end
 
   def test_invalid_primary_filename_is_refused_even_without_any_companions
-    @record.filename = "../main.iam"
+    @record.filename = "../main.#{assembly_extension}"
     assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) { stage { flunk "must not render" } }
   end
 
   def test_case_insensitive_duplicate_paths_and_file_directory_conflicts_are_rejected
-    add("MAIN.iam")
+    add("MAIN.#{assembly_extension}")
     error = assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) { stage { flunk "must not render" } }
     assert_includes error.message, "duplicate"
     @model.model_files = [@record]
-    add("Part.ipt")
-    add("part.ipt/Child.ipt")
+    add("Part.#{part_extension}")
+    add("part.#{part_extension}/Child.#{part_extension}")
     error = assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) { stage { flunk "must not render" } }
     assert_includes error.message, "conflicting"
   end
 
   def test_document_limit_counts_primary_and_fails_before_opening_companions
-    3.times { |index| add("part-#{index}.ipt") }
+    3.times { |index| add("part-#{index}.#{part_extension}") }
     error = assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) do
       stage(klass: limited_class(MAX_FILES: 3)) { flunk "must not render" }
     end
     assert_includes error.message, "document limit"
-    assert @model.model_files.all? { it.attachment.opens.zero? }
+    assert @model.model_files.all? { |record| record.attachment.opens.zero? }
   end
 
   def test_declared_aggregate_size_is_checked_before_any_companion_is_opened
-    add("large.ipt", "large companion")
+    add("large.#{part_extension}", "large companion")
     error = assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) do
       stage(klass: limited_class(MAX_SOURCE_BYTES: 24)) { flunk "must not render" }
     end
     assert_includes error.message, "source limit"
-    assert @model.model_files.all? { it.attachment.opens.zero? }
+    assert @model.model_files.all? { |record| record.attachment.opens.zero? }
   end
 
   def test_streamed_aggregate_limit_handles_inaccurate_metadata_and_cleans_up
     @source = StringIO.new("1234")
-    part = add("part.ipt", "56789", declared_size: 1)
+    part = add("part.#{part_extension}", "56789", declared_size: 1)
     error = assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) do
       stage(klass: limited_class(MAX_SOURCE_BYTES: 8)) { flunk "must not render" }
     end
@@ -206,18 +206,18 @@ class AssemblyInputsTest < Minitest::Test
   end
 
   def test_negative_metadata_cannot_reduce_the_preflight_aggregate
-    add("large.ipt", "large companion", declared_size: 100)
-    invalid = add("invalid.ipt", "negative metadata", declared_size: -100)
+    add("large.#{part_extension}", "large companion", declared_size: 100)
+    invalid = add("invalid.#{part_extension}", "negative metadata", declared_size: -100)
     error = assert_raises(ManyfoldThumbnails::AssemblyInputs::Error) do
       stage(klass: limited_class(MAX_SOURCE_BYTES: 24)) { flunk "must not render" }
     end
     assert_includes error.message, "negative declared"
     assert_equal 0, invalid.attachment.opens
-    assert @model.model_files.all? { it.attachment.opens.zero? }
+    assert @model.model_files.all? { |record| record.attachment.opens.zero? }
   end
 
   def test_deadline_applies_to_blocking_companion_download_and_closes_streams
-    part = add("slow.ipt", "slow part", delay: 0.3)
+    part = add("slow.#{part_extension}", "slow part", delay: 0.3)
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     assert_raises(Timeout::Error) { stage(seconds: 0.03) { flunk "must not render" } }
     assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 0.25
@@ -227,15 +227,37 @@ class AssemblyInputsTest < Minitest::Test
 
   def test_expired_deadline_and_renderer_failure_remove_staged_files
     assert_raises(Timeout::Error) { stage(seconds: -1) { flunk "must not render" } }
-    add("part.ipt")
+    add("part.#{part_extension}")
     error = assert_raises(RuntimeError) { stage { raise "renderer failed" } }
     assert_equal "renderer failed", error.message
     assert_equal 0, @source.pos
   end
 
   def test_staging_requires_a_model_context_and_leaves_standalone_inputs_supported
-    refute ManyfoldThumbnails::AssemblyInputs.applicable?(Struct.new(:filename).new("file.iam"))
-    refute ManyfoldThumbnails::AssemblyInputs.applicable?(Record.new(1, "file.iam", nil, nil))
+    refute ManyfoldThumbnails::AssemblyInputs.applicable?(Struct.new(:filename).new("file.#{assembly_extension}"))
+    refute ManyfoldThumbnails::AssemblyInputs.applicable?(Record.new(1, "file.#{assembly_extension}", nil, nil))
     assert ManyfoldThumbnails::AssemblyInputs.applicable?(@record)
+  end
+end
+
+class AssemblyInputsTest < Minitest::Test
+  include AssemblyInputsContract
+
+  def assembly_extension = "iam"
+  def part_extension = "ipt"
+end
+
+class SolidWorksAssemblyInputsTest < Minitest::Test
+  include AssemblyInputsContract
+
+  def assembly_extension = "sldasm"
+  def part_extension = "sldprt"
+
+  def test_other_cad_families_are_not_downloaded
+    inventor = add("other.ipt")
+    assembly = add("other.iam")
+    stage { |input| assert_equal [File.basename(input)], Dir.children(File.dirname(input)) }
+    assert_equal 0, inventor.attachment.opens
+    assert_equal 0, assembly.attachment.opens
   end
 end

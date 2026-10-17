@@ -1,0 +1,42 @@
+{
+  "catwalk_revision": "7bc0d96320b72a05c6ed44fbfaab4be0eef69d5f",
+  "files": [
+    {
+      "file": "solidworks-powerpackage.sldasm",
+      "sha256": "2e71fb43b889a5d9585eb7606266a1dd35ef685244df6ee65782a7f7b2f19788"
+    },
+    {
+      "file": "frontface.SLDPRT",
+      "sha256": "9e7093fc1e3a6a3c80e82e274f76a8b63d157ac9594d83e2e6221416215f3140"
+    },
+    {
+      "file": "松下38AH.SLDPRT",
+      "sha256": "3c078b467d0b55da33ae36c91c30244e86ab5c7f80e2fffd7d7c27441ce61846"
+    },
+    {
+      "file": "空开.SLDPRT",
+      "sha256": "f5f56d0e6d5af88203d19f4953d5ff4968f3458b0a263f8bdc46ef6082930492"
+    },
+    {
+      "file": "空开支架.SLDPRT",
+      "sha256": "0c8f5889a49525196e1979a32975a97fde0b5fd733bffe91eecfe3c146729f96"
+    },
+    {
+      "file": "稳压器.SLDPRT",
+      "sha256": "604398251c1b24aba957b47a87662e7bd6b65cce75c1644ee9049c0f32ab089c"
+    },
+    {
+      "file": "车载电源接口.SLDPRT",
+      "sha256": "8d58f916900566daddef55e32fc439cc8e227666eebb86aa1df11d60469e8aaa"
+    },
+    {
+      "file": "显示器电源接口.SLDPRT",
+      "sha256": "8e693316951a4ae85921532af8ddce18fc5de397a1d8d9128c8b8587227c0f76"
+    },
+    {
+      "file": "no-preview.sldasm",
+      "sha256": "483ad5954c46669693802da6352a0e061ff8e19d187968e2a11135034c3c68be",
+      "modification": "Only Preview and PreviewPNG stream contents overwritten with zero bytes; all other streams unchanged."
+    }
+  ]
+}

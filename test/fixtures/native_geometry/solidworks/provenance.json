@@ -1,0 +1,41 @@
+{
+  "repository": "https://github.com/guoxxiong/Power-Package",
+  "commit": "bc6b8d0ca0fe472a4f0ed91c9e64f986b3ddc7e6",
+  "license": "MIT",
+  "files": [
+    {
+      "source_name": "about.SLDPRT",
+      "file": "solidworks-about.sldprt",
+      "sha256": "08a8ec2afc112a27b1b8f4fad92224080b5c0d8cda8fc095b423cf91ca062e34",
+      "bytes": 138752,
+      "preview_png_sha256": "cfa22d7410a5b2467aaa4b6beefb1b9eff25b405f9d31c1e78616762b2dc68ec",
+      "preview_dib_sha256": "a3ce062b15d460a7dbae5a1aa0ce97ddacbc32f13cbc40d1b1a4d680903c324d",
+      "preview_size": [
+        640,
+        480
+      ],
+      "preview_dib_size": [
+        1418,
+        696
+      ],
+      "preview_dib_rgba_sha256": "d88aeede2f91ec3b938802a08cb2e430360e94f0d00f12100268f6e9384e74fc"
+    },
+    {
+      "source_name": "powerpackage.SLDASM",
+      "file": "solidworks-powerpackage.sldasm",
+      "sha256": "2e71fb43b889a5d9585eb7606266a1dd35ef685244df6ee65782a7f7b2f19788",
+      "bytes": 323072,
+      "preview_png_sha256": "df67217ac2d1968a2956834f51e8c54527897f5562fa267e2365c4dd0b084f46",
+      "preview_dib_sha256": "6b248123c9535c9f23abfe8d3b135ffee75b5717d2ff2f7e8fcf60eefe7990ea",
+      "preview_size": [
+        640,
+        480
+      ],
+      "preview_dib_size": [
+        1418,
+        696
+      ],
+      "preview_dib_rgba_sha256": "796b2803fab0699a29fd6ff8cf0b937cfdd112a7810fa20b03901613bda0c2e9"
+    }
+  ]
+}

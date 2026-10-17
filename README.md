@@ -53,9 +53,13 @@ Catwalk produces a 512 x 512 PNG with a transparent background and a fixed camer
 
 Inventor and Fusion geometry fallback reads stored native bodies and supported placements. It does not replay CAD feature history. Unsupported document versions, design history and assembly features may still have no thumbnail; see [Catwalk's native geometry examples and limits](https://github.com/cmeister2/catwalk3d/blob/main/docs/native-autodesk/README.md).
 
-Inventor assemblies that need geometry fallback are given a temporary project containing their current attachment and the same model's native `.ipt` / `.iam` attachments. Filenames and relative directories are preserved, including on object storage; Catwalk resolves and decodes all references. Companion staging is limited to 128 documents and 256 MiB in total and shares the 60-second processing deadline. References above the primary assembly's directory, missing components and ambiguous filenames remain unsupported. A usable saved thumbnail does not require companion staging.
+Inventor (`.iam`) and SolidWorks (`.sldasm`) assemblies first use Catwalk's ordinary saved-preview / local-geometry attempt. Only an unsuccessful call stages a temporary project containing the current source snapshot and the same Manyfold model's native attachments: `.ipt` / `.iam` for Inventor, or `.sldprt` / `.sldasm` for SolidWorks. A usable saved thumbnail or successful original local project does not enumerate or download companions. Filenames, case and relative directories are preserved on both local and object storage; files are never flattened or renamed to guess a reference.
 
-Relative sidecar resources, such as OBJ materials, glTF buffers or SolidWorks assembly components, can be read when Manyfold supplies the original local path with its extension. Downloaded or extensionless sources are processed as isolated temporary files; object-storage downloads may therefore lack sidecars. Companion staging is currently limited to Inventor assemblies. Use self-contained files when those resources are needed.
+For SolidWorks, Catwalk resolves relative component paths from the directory of the assembly that references them, with ASCII case-insensitive matching. Historical absolute CAD paths are relocated to a sibling with the referenced basename. Supported nested `.sldasm` assemblies are staged too; each nested assembly must have its own referenced components in the expected relative locations. All resolved files must remain beneath the primary assembly's directory. Thus a flat assembly with sibling parts works, as does a supported hierarchy below the primary directory; references using `..`, missing components, ambiguous names, cycles, virtual/flexible components and unsupported configurations or native document variants remain unsupported. Components in another Manyfold model are not searched. The plugin stages files; Catwalk decides whether their native geometry, placements and configurations can be decoded.
+
+Companion staging retains the 128-document and 256 MiB aggregate source limits, including the primary, and shares the original 60-second processing deadline. Both declared and streamed sizes are checked. Unsafe attachment paths, case-colliding paths or directories, and file/directory conflicts fail before downloads; temporary projects are removed on success or failure. All native attachments of the selected family count toward these staging limits, even when the assembly does not reference them.
+
+Other relative sidecar resources, such as OBJ materials and glTF buffers, can be read when Manyfold supplies the original local path with its extension. Downloaded or extensionless sources are otherwise processed as isolated temporary files. Companion staging is limited to Inventor and SolidWorks assemblies; use self-contained files for other resources.
 
 By default, Catwalk handles only formats without another thumbnail provider in the running Manyfold installation. Manyfold's F3D renderer and FreeCAD saved-preview extraction remain selected for their supported types. Enabled Catwalk formats use priority 5, above Manyfold's default model thumbnail providers. The host selects one provider per MIME type; it does not try another provider after an empty result.
 
@@ -117,7 +121,7 @@ Regeneration replaces only the selected file's `render` derivative and preserves
 | Extracted release files | 128 MiB |
 | Download, verification and cache-lock deadline | 120 seconds |
 | Processing deadline, including local source copies and assembly staging | 60 seconds |
-| Staged Inventor project | 128 documents / 256 MiB |
+| Staged Inventor or SolidWorks project | 128 documents / 256 MiB |
 | PNG output | 8 MiB |
 | Captured diagnostics | 64 KiB |
 

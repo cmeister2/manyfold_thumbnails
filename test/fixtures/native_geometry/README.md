@@ -19,3 +19,6 @@ The fixtures and their temporary variants never enter the plugin ZIP. CAD
 decoding and rendering remain entirely in Catwalk. These tests qualify the
 retained native geometry subset; they do not establish every application release,
 design-history or assembly-feature variant.
+
+SolidWorks sibling-component qualification, original licenses and preview-disabled
+variants are documented in [solidworks/README.md](solidworks/README.md).

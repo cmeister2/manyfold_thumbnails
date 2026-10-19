@@ -11,6 +11,9 @@ require_relative "../lib/manyfold_thumbnails/catwalk"
 class CatwalkThumbnailTest < Minitest::Test
   include TemporaryMethod
 
+  def assembly_extension = "iam"
+  def part_extension = "ipt"
+
   Record = Struct.new(:filename)
 
   def setup
@@ -81,10 +84,10 @@ class CatwalkThumbnailTest < Minitest::Test
     staged_bytes = File.join(@directory, "staged-bytes")
     png = InventorFixture.png(width: 512, height: 512)
     executable <<~RUBY
-      exit 3 unless File.basename(ARGV.first) == "Main.IAM"
+      exit 3 unless File.basename(ARGV.first) == "Main.#{assembly_extension.upcase}"
       File.write(#{arguments.dump}, ARGV.join("\\n"))
       primary = File.binread(ARGV.first)
-      companion = File.binread(File.join(File.dirname(ARGV.first), "Part.IPT"))
+      companion = File.binread(File.join(File.dirname(ARGV.first), "Part.#{part_extension.upcase}"))
       File.binwrite(#{staged_bytes.dump}, primary + "|" + companion)
       $stdout.binmode
       $stdout.write(#{png.dump})
@@ -96,9 +99,9 @@ class CatwalkThumbnailTest < Minitest::Test
     companion_attachment.define_singleton_method(:open) do |&block|
       StringIO.open("object storage part", &block)
     end
-    record = record_class.new(1, "Main.IAM", nil, model)
-    model.model_files = [record, record_class.new(2, "Part.IPT", companion_attachment, model)]
-    source = File.join(@directory, "shrine-random.iam")
+    record = record_class.new(1, "Main.#{assembly_extension.upcase}", nil, model)
+    model.model_files = [record, record_class.new(2, "Part.#{part_extension.upcase}", companion_attachment, model)]
+    source = File.join(@directory, "shrine-random.#{assembly_extension}")
     File.binwrite(source, "isolated assembly")
     File.open(source, "rb") do |file|
       extractor = ManyfoldThumbnails::Catwalk.new(file: file, record: record)
@@ -108,7 +111,7 @@ class CatwalkThumbnailTest < Minitest::Test
     end
     assert_equal "isolated assembly|object storage part", File.binread(staged_bytes)
     argv = File.read(arguments).lines.map(&:chomp)
-    assert_equal "Main.IAM", File.basename(argv.first)
+    assert_equal "Main.#{assembly_extension.upcase}", File.basename(argv.first)
     refute_equal source, argv.first
     assert_equal ["--output", "-", "--size", "512", "--transparent"], argv.drop(1)
     refute File.exist?(File.dirname(argv.first)), "Staged project must be removed after Catwalk exits"
@@ -119,12 +122,12 @@ class CatwalkThumbnailTest < Minitest::Test
     observation = File.join(@directory, "ordinary-input")
     executable "File.write(#{observation.dump}, ARGV.first); exit 3"
     model = Struct.new(:model_files).new([])
-    record = Struct.new(:filename, :model).new("../Main.iam", model)
+    record = Struct.new(:filename, :model).new("../Main.#{assembly_extension}", model)
     extractor = ManyfoldThumbnails::Catwalk.new(file: StringIO.new("assembly"), record: record)
     assert_empty extractor.call
     assert_equal :failed, extractor.status
     assert_includes extractor.reason, "relative paths"
-    assert_equal ".iam", File.extname(File.read(observation))
+    assert_equal ".#{assembly_extension}", File.extname(File.read(observation))
   end
 
   def test_usable_saved_assembly_thumbnail_ignores_unused_companion_problems
@@ -140,16 +143,16 @@ class CatwalkThumbnailTest < Minitest::Test
     unusable_attachment.define_singleton_method(:size) { 512 * 1024 * 1024 }
     unusable_attachment.define_singleton_method(:open) { |*| raise "Unused companions must not be downloaded" }
     [
-      ["duplicate.ipt", "DUPLICATE.ipt"],
-      ["../outside.ipt"],
-      Array.new(128) { |index| "part-#{index}.ipt" },
-      ["oversized.ipt"]
+      ["duplicate.#{part_extension}", "DUPLICATE.#{part_extension}"],
+      ["../outside.#{part_extension}"],
+      Array.new(128) { |index| "part-#{index}.#{part_extension}" },
+      ["oversized.#{part_extension}"]
     ].each do |filenames|
       records = filenames.each_with_index.map { |name, index| record_class.new(index + 2, name, unusable_attachment) }
       inspections = 0
       model = Object.new
       model.define_singleton_method(:model_files) { inspections += 1; records }
-      record = record_class.new(1, "Main.iam", nil, model)
+      record = record_class.new(1, "Main.#{assembly_extension}", nil, model)
       extractor = ManyfoldThumbnails::Catwalk.new(file: StringIO.new("saved assembly preview"), record: record)
       assert_equal png, extractor.call.fetch(:render).read
       assert_equal :generated, extractor.status
@@ -164,8 +167,8 @@ class CatwalkThumbnailTest < Minitest::Test
     executable "File.write(#{observation.dump}, ARGV.first); $stdout.binmode; $stdout.write(#{png.dump})"
     model = Object.new
     model.define_singleton_method(:model_files) { raise "Successful local input must not stage companions" }
-    record = Struct.new(:filename, :model).new("Main.iam", model)
-    source = File.join(@directory, "Main.iam")
+    record = Struct.new(:filename, :model).new("Main.#{assembly_extension}", model)
+    source = File.join(@directory, "Main.#{assembly_extension}")
     File.binwrite(source, "existing project assembly")
     File.open(source, "rb") do |file|
       extractor = ManyfoldThumbnails::Catwalk.new(file: file, record: record)
@@ -181,12 +184,12 @@ class CatwalkThumbnailTest < Minitest::Test
     executable <<~RUBY
       File.open(#{invocations.dump}, "a") { |file| file.puts ARGV.first }
       sleep 2
-      exit 3 unless File.basename(ARGV.first) == "Main.iam"
+      exit 3 unless File.basename(ARGV.first) == "Main.#{assembly_extension}"
       $stdout.binmode
       $stdout.write(#{png.dump})
     RUBY
     model = Struct.new(:model_files).new([])
-    record = Struct.new(:filename, :model).new("Main.iam", model)
+    record = Struct.new(:filename, :model).new("Main.#{assembly_extension}", model)
     extractor = limited_class(MAX_SECONDS: 3).new(file: StringIO.new("assembly"), record: record)
     assert_empty extractor.call
     assert_equal :failed, extractor.status
@@ -325,4 +328,9 @@ class CatwalkThumbnailTest < Minitest::Test
       assert_includes extractor.reason, "empty"
     end
   end
+end
+
+class SolidWorksThumbnailTest < CatwalkThumbnailTest
+  def assembly_extension = "sldasm"
+  def part_extension = "sldprt"
 end

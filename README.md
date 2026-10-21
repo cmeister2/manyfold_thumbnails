@@ -49,7 +49,9 @@ See [Catwalk3D's format coverage](https://github.com/cmeister2/catwalk3d/blob/ma
 
 Ordinary image thumbnails, including TIFF stacks, use Manyfold's image handling. TerraScan `.bin` is excluded because Manyfold uses a generic document MIME type for that extension. Fusion `.f3z` and Lychee `.lyt` are not supported by this plugin. The plugin's fixtures exercise a subset of Catwalk's readers, rather than every file variant.
 
-Catwalk produces a 512 x 512 PNG with a transparent background and a fixed camera. Its normal camera uses an isometric Z-up view; LightBurn uses the XY plane. Manyfold's per-file up-direction setting does not change that camera. Saved images can be missing, blank, or out of date, and file variants unsupported by a reader may still have no thumbnail. A thumbnail does not verify the design's geometry.
+Catwalk produces a PNG with a transparent background at the **3D Renders Resolution** selected in Manyfold's **Settings → File Derivatives** (Manyfold 0.153.0 or newer), including both geometry renders and saved previews. The default is 512 x 512; older Manyfold versions always use that size. Resolution changes apply to future thumbnails, backfill of missing thumbnails and explicit regeneration; existing thumbnails are retained.
+
+Catwalk uses a fixed camera: its normal camera uses an isometric Z-up view; LightBurn uses the XY plane. Manyfold's per-file up-direction setting does not change that camera. Saved images can be missing, blank, or out of date, and file variants unsupported by a reader may still have no thumbnail. A thumbnail does not verify the design's geometry.
 
 Inventor and Fusion geometry fallback reads stored native bodies and supported placements. It does not replay CAD feature history. Unsupported document versions, design history and assembly features may still have no thumbnail; see [Catwalk's native geometry examples and limits](https://github.com/cmeister2/catwalk3d/blob/main/docs/native-autodesk/README.md).
 
@@ -118,7 +120,7 @@ Regeneration replaces only the selected file's `render` derivative and preserves
 | Download, verification and cache-lock deadline | 120 seconds |
 | Processing deadline, including local source copies and assembly staging | 60 seconds |
 | Staged Inventor project | 128 documents / 256 MiB |
-| PNG output | 8 MiB |
+| PNG output | 8 MiB up to 512 x 512, plus 4 bytes per additional pixel (23 MiB at 2048 x 2048) |
 | Captured diagnostics | 64 KiB |
 
 The deadline terminates the Catwalk process when exceeded. Initial source downloads and derivative uploads occur through Manyfold outside that deadline. Assembly companion downloads are included in the processing deadline. These bounds do not establish a peak-memory limit or a limit on the total size of local sidecar resources. Missing previews and failed readers are recorded without changing the source file.

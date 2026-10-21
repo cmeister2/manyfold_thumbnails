@@ -21,4 +21,4 @@ set -- docker run --rm --pull=missing --network none \
   --env MANYFOLD_THUMBNAILS_TEST=1 \
   --env "MANYFOLD_THUMBNAILS_EXPECTED_VERSION=$expected_version"
 
-exec "$@" "${MANYFOLD_IMAGE:-manyfold3d/manyfold-solo:0.151.0@sha256:772bcb18f0cb69d4fd0630d4676516f34fb37e42c3ac9d65eea5f173728e818e}"
+exec "$@" "${MANYFOLD_IMAGE:-manyfold3d/manyfold-solo:0.153.0@sha256:161109b917a158b5efd8478a437e9900db7bdc57235c167aa70d5ad69425fc31}"

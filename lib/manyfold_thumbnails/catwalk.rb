@@ -16,6 +16,7 @@ module ManyfoldThumbnails
     MAX_ERROR_BYTES = 64 * 1024
     MAX_SECONDS = 60
     SIZE = 512
+    MAX_DIMENSION = 4096
     PNG_SIGNATURE = "\x89PNG\r\n\x1a\n".b.freeze
     class ProcessingError < StandardError; end
 
@@ -37,6 +38,7 @@ module ManyfoldThumbnails
       return {} unless Formats::CATWALK_EXTENSIONS.include?(extension)
 
       check_source_size!(@file.size)
+      @dimensions = thumbnail_dimensions
       binary = self.class.binary
       deadline = monotonic_time + self.class::MAX_SECONDS
       output, diagnostic, exit_status = run_with_project_retry(binary, extension, deadline)
@@ -47,8 +49,8 @@ module ManyfoldThumbnails
         return {}
       end
       unless output.start_with?(PNG_SIGNATURE) && output.byteslice(12, 4) == "IHDR" &&
-          output.byteslice(16, 8)&.unpack("N2") == [SIZE, SIZE]
-        raise ProcessingError, "Catwalk did not return a #{SIZE} x #{SIZE} PNG."
+          output.byteslice(16, 8)&.unpack("N2") == @dimensions
+        raise ProcessingError, "Catwalk did not return a #{@dimensions.join(' x ')} PNG."
       end
 
       @status = :generated
@@ -61,6 +63,22 @@ module ManyfoldThumbnails
     end
 
     private
+
+    def thumbnail_dimensions
+      # Manyfold added this setting in 0.153.0; older hosts retain 512 x 512.
+      resolution = if defined?(::SiteSettings) && ::SiteSettings.respond_to?(:model_renders_size)
+        ::SiteSettings.model_renders_size
+      else
+        "#{SIZE},#{SIZE}"
+      end
+      match = /\A([0-9]{1,4}),([0-9]{1,4})\z/.match(resolution.to_s)
+      dimensions = match&.captures&.map(&:to_i)
+      unless dimensions && dimensions.all? { |value| (1..MAX_DIMENSION).cover?(value) }
+        raise ProcessingError, "Catwalk thumbnail resolution must be WIDTH,HEIGHT with each dimension between 1 and #{MAX_DIMENSION} pixels."
+      end
+
+      dimensions
+    end
 
     def monotonic_time
       Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -119,11 +137,14 @@ module ManyfoldThumbnails
     def run(binary, path, deadline)
       output = +"".b
       diagnostic = +"".b
-      Open3.popen3(binary, path, "--output", "-", "--size", SIZE.to_s,
+      # Larger canvases can exceed 8 MiB even as valid, compressed RGBA PNGs.
+      output_limit = self.class::MAX_OUTPUT_BYTES +
+        [@dimensions[0] * @dimensions[1] - SIZE * SIZE, 0].max * 4
+      Open3.popen3(binary, path, "--output", "-", "--resolution", @dimensions.join(","),
         "--transparent", pgroup: true) do |input, stdout, stderr, process|
         completed = false
         input.close
-        streams = {stdout => [output, self.class::MAX_OUTPUT_BYTES], stderr => [diagnostic, self.class::MAX_ERROR_BYTES]}
+        streams = {stdout => [output, output_limit], stderr => [diagnostic, self.class::MAX_ERROR_BYTES]}
         until streams.empty?
           ready = IO.select(streams.keys, nil, nil, remaining_time(deadline))
           raise Timeout::Error unless ready

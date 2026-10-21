@@ -1,4 +1,4 @@
-ARG MANYFOLD_IMAGE=manyfold3d/manyfold-solo:0.152.0@sha256:37e3e76ce59eda468e6f7c335d5fbdfb0bf700ca6312da6dd87881807eda44ee
+ARG MANYFOLD_IMAGE=manyfold3d/manyfold-solo:0.153.0@sha256:161109b917a158b5efd8478a437e9900db7bdc57235c167aa70d5ad69425fc31
 FROM ${MANYFOLD_IMAGE}
 
 COPY docker/local-setup.rb /usr/src/app/docker/local-setup.rb

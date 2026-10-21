@@ -15,6 +15,7 @@ require "digest"
 require "shrine/storage/memory"
 require_relative "support/inventor_fixture"
 require_relative "support/catwalk_fixture"
+require_relative "support/render_size_setting"
 
 ActiveJob::Base.queue_adapter = :test
 Warden.test_mode!
@@ -32,6 +33,7 @@ Minitest::Test.prepend(PluginTestExecutionContext)
 
 class ThumbnailsPluginTest < Minitest::Test
   include Warden::Test::Helpers
+  include RenderSizeSetting
 
   def setup
     @render_setting = SiteSettings.find_by(var: "generate_model_renders")&.attributes
@@ -87,18 +89,20 @@ class ThumbnailsPluginTest < Minitest::Test
       FileHandlers::CatwalkThumbnailer
   end
 
-  def test_normal_background_promotion_generates_png_without_changing_source
-    [:ipt, :iam].each do |extension|
-      file, source = ingest(filename: "fixture.#{extension}")
-      assert file.has_render?
-      render = file.attachment_derivatives.fetch(:render)
-      assert_equal @library.storage_key, render.storage_key
-      assert_equal "image/png", render.mime_type
-      assert_equal [512, 512], render.read.byteslice(16, 8).unpack("NN")
-      assert_equal source, file.attachment.read
-      assert_equal Digest::SHA256.hexdigest(source),
-        Digest::SHA256.file(File.join(@directory, @model.path, file.filename)).hexdigest
-      assert_empty file.attachment_derivatives.keys - [:render]
+  def test_normal_background_promotion_uses_the_configured_resolution_without_changing_source
+    with_render_size("1024,1024") do
+      [:ipt, :iam].each do |extension|
+        file, source = ingest(filename: "fixture.#{extension}")
+        assert file.has_render?
+        render = file.attachment_derivatives.fetch(:render)
+        assert_equal @library.storage_key, render.storage_key
+        assert_equal "image/png", render.mime_type
+        assert_equal [1024, 1024], render.read.byteslice(16, 8).unpack("NN")
+        assert_equal source, file.attachment.read
+        assert_equal Digest::SHA256.hexdigest(source),
+          Digest::SHA256.file(File.join(@directory, @model.path, file.filename)).hexdigest
+        assert_empty file.attachment_derivatives.keys - [:render]
+      end
     end
   end
 

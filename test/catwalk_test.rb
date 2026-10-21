@@ -4,6 +4,7 @@ require "minitest/autorun"
 require "fileutils"
 require "tmpdir"
 require "rbconfig"
+require "digest"
 require_relative "support/inventor_fixture"
 require_relative "support/temporary_method"
 require_relative "../lib/manyfold_thumbnails/catwalk"
@@ -57,8 +58,107 @@ class CatwalkThumbnailTest < Minitest::Test
     assert_equal "solid fixture", File.binread(input_data)
     argv = File.read(arguments).lines.map(&:chomp)
     assert_equal ".stl", File.extname(argv.first)
-    assert_equal ["--output", "-", "--size", "512", "--transparent"], argv.drop(1)
+    assert_equal ["--output", "-", "--resolution", "512,512", "--transparent"], argv.drop(1)
     refute File.exist?(argv.first), "Temporary source must be removed after rendering"
+  end
+
+  def test_older_hosts_without_a_resolution_setting_keep_the_default
+    png = InventorFixture.png(width: 512, height: 512)
+    executable "$stdout.binmode; $stdout.write(#{png.dump})"
+    [nil, Object.new].each do |settings|
+      with_site_settings(settings) do
+        extractor = provider
+        assert_equal png, extractor.call.fetch(:render).read
+        assert_equal :generated, extractor.status
+      end
+    end
+  end
+
+  def test_supported_resolutions_and_rectangular_bounds_are_passed_to_catwalk
+    arguments = File.join(@directory, "arguments")
+    dimensions = [128, 256, 512, 1024, 2048].map { |size| [size, size] } + [[1, 4096], [4096, 1]]
+    dimensions.each do |width, height|
+      png = InventorFixture.png(width: width, height: height)
+      executable <<~RUBY
+        File.write(#{arguments.dump}, ARGV.join("\n"))
+        $stdout.binmode
+        $stdout.write(#{png.dump})
+      RUBY
+      settings = Struct.new(:model_renders_size).new("#{width},#{height}")
+      with_site_settings(settings) do
+        extractor = provider
+        assert_equal png, extractor.call.fetch(:render).read
+        assert_equal :generated, extractor.status
+      end
+      assert_equal ["--output", "-", "--resolution", "#{width},#{height}", "--transparent"],
+        File.readlines(arguments, chomp: true).drop(1)
+    end
+  end
+
+  def test_resolution_is_read_once_per_call_and_changes_are_applied_to_the_same_provider
+    reads = 0
+    settings = Object.new
+    settings.define_singleton_method(:model_renders_size) do
+      reads += 1
+      reads == 1 ? "128,256" : "256,128"
+    end
+    with_site_settings(settings) do
+      extractor = provider
+      [[128, 256], [256, 128]].each_with_index do |(width, height), index|
+        png = InventorFixture.png(width: width, height: height)
+        executable "$stdout.binmode; $stdout.write(#{png.dump})"
+        assert_equal png, extractor.call.fetch(:render).read
+        assert_equal :generated, extractor.status
+        assert_equal index + 1, reads
+      end
+    end
+  end
+
+  def test_high_resolution_png_can_exceed_the_default_output_limit
+    width = height = 2048
+    random = Random.new(123)
+    scanlines = Array.new(height) { "\0".b + random.bytes(width * 4) }.join
+    png = ManyfoldThumbnails::Catwalk::PNG_SIGNATURE +
+      InventorFixture.chunk("IHDR", [width, height, 8, 6, 0, 0, 0].pack("NNC5")) +
+      InventorFixture.chunk("IDAT", Zlib.deflate(scanlines)) + InventorFixture.chunk("IEND", "".b)
+    assert_operator png.bytesize, :>, ManyfoldThumbnails::Catwalk::MAX_OUTPUT_BYTES
+    path = File.join(@directory, "high-resolution.png")
+    File.binwrite(path, png)
+    executable "$stdout.binmode; IO.copy_stream(#{path.dump}, $stdout)"
+    with_site_settings(Struct.new(:model_renders_size).new("2048,2048")) do
+      extractor = provider
+      render = extractor.call.fetch(:render)
+      assert_equal :generated, extractor.status
+      assert_equal Digest::SHA256.hexdigest(png), Digest::SHA256.hexdigest(render.read)
+    end
+  end
+
+  def test_wrong_output_dimensions_are_rejected_including_swapped_rectangles
+    with_site_settings(Struct.new(:model_renders_size).new("128,256")) do
+      [[512, 512], [256, 128], [128, 128], [256, 256]].each do |width, height|
+        png = InventorFixture.png(width: width, height: height)
+        executable "$stdout.binmode; $stdout.write(#{png.dump})"
+        extractor = provider
+        assert_empty extractor.call
+        assert_equal :failed, extractor.status
+        assert_includes extractor.reason, "128 x 256 PNG"
+      end
+    end
+  end
+
+  def test_invalid_resolutions_fail_before_launching_catwalk
+    forbidden = lambda { raise "An invalid resolution must not resolve the executable" }
+    with_temporary_method(ManyfoldThumbnails::Executable, :path, forbidden) do
+      [nil, "", "512", "512x512", "512,512,512", "128.5,256", "-1,512", "0,512",
+        "512,0", "4097,512", "512,4097", "512,512; touch unexpected", [512, 512]].each do |value|
+        with_site_settings(Struct.new(:model_renders_size).new(value)) do
+          extractor = provider
+          assert_empty extractor.call, value.inspect
+          assert_equal :failed, extractor.status, value.inspect
+          assert_includes extractor.reason.downcase, "resolution"
+        end
+      end
+    end
   end
 
   def test_local_input_keeps_parent_directory_and_source_bytes
@@ -79,13 +179,16 @@ class CatwalkThumbnailTest < Minitest::Test
   def test_model_assembly_materializes_named_companions_for_catwalk_and_cleans_up
     arguments = File.join(@directory, "arguments")
     staged_bytes = File.join(@directory, "staged-bytes")
-    png = InventorFixture.png(width: 512, height: 512)
+    png = InventorFixture.png(width: 128, height: 256)
+    reads = 0
+    settings = Object.new
+    settings.define_singleton_method(:model_renders_size) { reads += 1; "128,256" }
     executable <<~RUBY
+      File.open(#{arguments.dump}, "a") { |file| file.puts ARGV.drop(1).join(" ") }
       exit 3 unless File.basename(ARGV.first) == "Main.IAM"
-      File.write(#{arguments.dump}, ARGV.join("\\n"))
       primary = File.binread(ARGV.first)
       companion = File.binread(File.join(File.dirname(ARGV.first), "Part.IPT"))
-      File.binwrite(#{staged_bytes.dump}, primary + "|" + companion)
+      File.binwrite(#{staged_bytes.dump}, ARGV.first + "\n" + primary + "|" + companion)
       $stdout.binmode
       $stdout.write(#{png.dump})
     RUBY
@@ -100,18 +203,21 @@ class CatwalkThumbnailTest < Minitest::Test
     model.model_files = [record, record_class.new(2, "Part.IPT", companion_attachment, model)]
     source = File.join(@directory, "shrine-random.iam")
     File.binwrite(source, "isolated assembly")
-    File.open(source, "rb") do |file|
-      extractor = ManyfoldThumbnails::Catwalk.new(file: file, record: record)
-      assert_equal png, extractor.call.fetch(:render).read
-      assert_equal :generated, extractor.status
-      assert_equal 0, file.pos
+    with_site_settings(settings) do
+      File.open(source, "rb") do |file|
+        extractor = ManyfoldThumbnails::Catwalk.new(file: file, record: record)
+        assert_equal png, extractor.call.fetch(:render).read
+        assert_equal :generated, extractor.status
+        assert_equal 0, file.pos
+      end
     end
-    assert_equal "isolated assembly|object storage part", File.binread(staged_bytes)
-    argv = File.read(arguments).lines.map(&:chomp)
-    assert_equal "Main.IAM", File.basename(argv.first)
-    refute_equal source, argv.first
-    assert_equal ["--output", "-", "--size", "512", "--transparent"], argv.drop(1)
-    refute File.exist?(File.dirname(argv.first)), "Staged project must be removed after Catwalk exits"
+    path, bytes = File.binread(staged_bytes).split("\n", 2)
+    assert_equal "isolated assembly|object storage part", bytes
+    assert_equal "Main.IAM", File.basename(path)
+    refute_equal source, path
+    assert_equal ["--output - --resolution 128,256 --transparent"] * 2, File.readlines(arguments, chomp: true)
+    assert_equal 1, reads, "Assembly retries must reuse the resolution read for the initial call."
+    refute File.exist?(File.dirname(path)), "Staged project must be removed after Catwalk exits"
     assert_equal "isolated assembly", File.binread(source)
   end
 
@@ -324,5 +430,17 @@ class CatwalkThumbnailTest < Minitest::Test
       assert_equal :failed, extractor.status
       assert_includes extractor.reason, "empty"
     end
+  end
+
+  private
+
+  def with_site_settings(settings)
+    original = Object.const_get(:SiteSettings) if Object.const_defined?(:SiteSettings)
+    Object.send(:remove_const, :SiteSettings) if original
+    Object.const_set(:SiteSettings, settings) if settings
+    yield
+  ensure
+    Object.send(:remove_const, :SiteSettings) if Object.const_defined?(:SiteSettings)
+    Object.const_set(:SiteSettings, original) if original
   end
 end

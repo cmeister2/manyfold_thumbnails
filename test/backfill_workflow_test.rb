@@ -5,8 +5,11 @@ require "base64"
 require "shrine/storage/memory"
 require_relative "support/inventor_fixture"
 require_relative "support/catwalk_fixture"
+require_relative "support/render_size_setting"
 
 class ThumbnailBackfillWorkflowTest < Minitest::Test
+  include RenderSizeSetting
+
   PNG = Base64.strict_decode64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==").freeze
   SOURCE = "Fictional Inventor source for the derivative workflow tests.".freeze
 
@@ -121,11 +124,13 @@ class ThumbnailBackfillWorkflowTest < Minitest::Test
     bytes = InventorFixture.compound(streams: {"\u0005preview" => InventorFixture.property_set(image: image)})
     file = source("real-workflow.iam", bytes: bytes)
     SiteSettings.generate_model_renders = true
-    run = keep(ManyfoldThumbnails::Backfill.start!(library_id: @library.id))
-    finish(run)
-    assert_equal 1, run.reload.generated
+    with_render_size("256,256") do
+      run = keep(ManyfoldThumbnails::Backfill.start!(library_id: @library.id))
+      finish(run)
+      assert_equal 1, run.reload.generated
+    end
     previous_png = file.reload.attachment(:render).read
-    assert_equal [512, 512], previous_png.byteslice(16, 8).unpack("NN")
+    assert_equal [256, 256], previous_png.byteslice(16, 8).unpack("NN")
     assert_equal file.id, @model.reload.preview_file_id
     assert_equal bytes, file.attachment.read
 
@@ -134,10 +139,12 @@ class ThumbnailBackfillWorkflowTest < Minitest::Test
     File.binwrite(File.join(@directory, @model.path, file.filename), replacement)
     # A previous full read leaves Shrine's source IO at EOF. Regeneration must
     # reopen it instead of downloading an empty stream from that position.
-    regenerated = ManyfoldThumbnails::Render.new(record: file, regenerate: true).call
-    assert_equal :generated, regenerated.outcome
+    with_render_size("1024,1024") do
+      regenerated = ManyfoldThumbnails::Render.new(record: file, regenerate: true).call
+      assert_equal :generated, regenerated.outcome
+    end
     replacement_png = file.reload.attachment(:render).read
-    assert_equal [512, 512], replacement_png.byteslice(16, 8).unpack("NN")
+    assert_equal [1024, 1024], replacement_png.byteslice(16, 8).unpack("NN")
     refute_equal previous_png, replacement_png
     assert_equal replacement, file.attachment.read
   end

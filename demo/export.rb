@@ -398,7 +398,7 @@ class StaticThumbnailDemoExport
         <ul>
           <li><a href="#{REPOSITORY}">Plugin and demo source</a></li>
           <li>Adapted demo build, export and navigation code: <a href="https://github.com/cmeister2/manyfold_openscad/tree/41a967e1d76fd10924cce1f2605e0422c81bcf5e/demo">original OpenSCAD demo source</a> · <a href="licenses/OPENSCAD-DEMO-NOTICE.txt">Max Dymond's copyright and source notice</a> · <a href="licenses/OPENSCAD-DEMO-AGPL-3.0.txt">AGPL-3.0-only license for the adapted demo code</a></li>
-          <li><a href="https://github.com/manyfold3d/manyfold/tree/#{host_revision}">Manyfold 0.151.0 source</a> · <a href="licenses/MANYFOLD-AGPL-3.0.txt">Manyfold license</a></li>
+          <li><a href="https://github.com/manyfold3d/manyfold/tree/#{host_revision}">Manyfold 0.154.0 source</a> · <a href="licenses/MANYFOLD-AGPL-3.0.txt">Manyfold license</a></li>
           <li><a href="licenses/README.md">Host stylesheet and icon font notices</a> · <a href="licenses/manifest.json">Pinned image and exact dependency sources</a></li>
           <li><a href="#{EXAMPLE_CREDITS}">Original thumbnail sources and credits</a> · <a href="licenses/EXAMPLES-catwalk-MIT.txt">Catwalk example MIT license</a> · <a href="licenses/EXAMPLES-lightburn-MIT.txt">Butterfly example MIT license</a></li>
           <li><a href="#{NATIVE_CREDITS}">Native CAD thumbnail producer inputs, source and retained licenses</a></li>
@@ -425,7 +425,7 @@ class StaticThumbnailDemoExport
   def export_manifest
     manifest = {
       presentation: "Committed PNGs displayed through real Manyfold model cards; no runtime rendering.",
-      manyfold_version: "0.151.0",
+      manyfold_version: "0.154.0",
       manyfold_source: "https://github.com/manyfold3d/manyfold/tree/#{Rails.application.config.git_sha}",
       pages: ["index.html", "settings.html", "notices.html"],
       examples: @examples.map do |example|

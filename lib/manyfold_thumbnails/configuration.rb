@@ -3,6 +3,9 @@
 module ManyfoldThumbnails
   module Configuration
     SETTING_KEY = "manyfold_thumbnails_enabled_mime_types"
+    # These plugin registrations became core registrations in Manyfold 0.154.
+    # Resolve saved selections through their current, possibly shared MIME type.
+    LEGACY_MIME_TYPES = {"model/x-vtkhdf" => "vtkhdf", "model/x-vtm" => "vtm"}.freeze
     class InvalidConfiguration < StandardError; end
 
     def self.enabled_mime_types
@@ -11,7 +14,10 @@ module ManyfoldThumbnails
       setting = ::SiteSettings.uncached { ::SiteSettings.find_by(var: SETTING_KEY) }
       return Formats.default_enabled_mime_types unless setting
 
-      Array(setting.value) & Formats.catwalk_mime_types.map(&:to_s)
+      Array(setting.value).map do |type|
+        extension = LEGACY_MIME_TYPES[type]
+        extension ? Mime::Type.lookup_by_extension(extension)&.to_s : type
+      end.compact.uniq & Formats.catwalk_mime_types.map(&:to_s)
     end
 
     def self.update!(enabled_mime_types:)

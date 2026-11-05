@@ -11,7 +11,9 @@ class FileHandlers::CatwalkThumbnailer < FileHandlers::Base
   end
 
   def self.priority
-    5
+    # Enabled formats are explicit overrides when core also has a provider.
+    # Manyfold 0.154 gives its FreeCAD saved-preview extractor priority 30.
+    50
   end
 
   def self.thumbnailer

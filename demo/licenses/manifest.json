@@ -1,8 +1,8 @@
 {
   "manyfold": {
-    "version": "0.151.0",
-    "image": "manyfold3d/manyfold-solo:0.151.0@sha256:772bcb18f0cb69d4fd0630d4676516f34fb37e42c3ac9d65eea5f173728e818e",
-    "source": "https://github.com/manyfold3d/manyfold/tree/c89c8964c714749957656474ab1e3757ff8f12ca",
+    "version": "0.154.0",
+    "image": "manyfold3d/manyfold-solo:0.154.0@sha256:fc6deade2a191033d109a8296876d504334dc14bee6097d0ae3ca4a218354ff7",
+    "source": "https://github.com/manyfold3d/manyfold/tree/0939b3eb17c2ed0a0beb861f9016dc06278887be",
     "files": [
       "manyfold-LICENSE.md"
     ]
@@ -20,10 +20,10 @@
     },
     {
       "package": "bootstrap-icons",
-      "version": "1.13.1",
+      "version": "1.13.2",
       "repository": "https://github.com/twbs/icons",
-      "tarball": "https://registry.npmjs.org/bootstrap-icons/-/bootstrap-icons-1.13.1.tgz",
-      "integrity": "sha512-ijombt4v6bv5CLeXvRWKy7CuM3TRTuPEuGaGKvTV5cz65rQSY8RQ2JcHt6b90cBBAC7s8fsf2EkQDldzCoXUjw==",
+      "tarball": "https://registry.npmjs.org/bootstrap-icons/-/bootstrap-icons-1.13.2.tgz",
+      "integrity": "sha512-fAU1Ly3dH7hwRg+CB8EZ0Vl0fF80zgXHeUVJyfUOKzoURr+TbwISbCW5tKUoQLERaWYG2emTCybcPbD96hdD1A==",
       "files": [
         "bootstrap-icons-LICENSE.txt"
       ]
@@ -55,10 +55,10 @@
     },
     {
       "package": "@uppy/core",
-      "version": "6.2.0",
+      "version": "6.3.0",
       "repository": "https://github.com/transloadit/uppy",
-      "tarball": "https://registry.npmjs.org/@uppy/core/-/core-6.2.0.tgz",
-      "integrity": "sha512-GujQtHazyHM2jjoNZyZlB+R3mUf1bynx0D+sPRt4IfLEfV09LbqA1kzwabL+WEKFdfqls15T+a/4u3XGV4n/oQ==",
+      "tarball": "https://registry.npmjs.org/@uppy/core/-/core-6.3.0.tgz",
+      "integrity": "sha512-D6+iERQrI194UZO9dOIJWrT5GtOtyR9k4Wh6VU7cXThEaRNvMQDqXj1GzHDs2TffnZ5pRxufwB84Os8uH3+bVA==",
       "files": [
         "uppy-core-LICENSE.txt"
       ],
@@ -76,10 +76,10 @@
     },
     {
       "package": "driver.js",
-      "version": "1.9.0",
+      "version": "1.10.2",
       "repository": "https://github.com/nilbuild/driver.js",
-      "tarball": "https://registry.npmjs.org/driver.js/-/driver.js-1.9.0.tgz",
-      "integrity": "sha512-+YWVdNVUrY1/2spszQshohWYY4soIjNBnMFS6lfmousT8igos2lmswhlqyuuNMhr+qbV0EjJ+L6i2FECPr6Ygg==",
+      "tarball": "https://registry.npmjs.org/driver.js/-/driver.js-1.10.2.tgz",
+      "integrity": "sha512-L/EMTriJPAmg+5kIFmrjzt3TI+1NblhHOV/UZkfpgU/uxhSflGheynMBxk5oImDSy6seAEkIl6MzNOc0zdoKtg==",
       "files": [
         "driverjs-LICENSE.txt"
       ],
@@ -90,7 +90,7 @@
     "OFL-1.1.txt": "https://openfontlicense.org/documents/OFL.txt",
     "CC-BY-3.0.txt": "https://creativecommons.org/licenses/by/3.0/legalcode.txt",
     "MIT.txt": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
-    "manyfold-LICENSE.md": "https://raw.githubusercontent.com/manyfold3d/manyfold/c89c8964c714749957656474ab1e3757ff8f12ca/LICENSE.md",
+    "manyfold-LICENSE.md": "https://raw.githubusercontent.com/manyfold3d/manyfold/0939b3eb17c2ed0a0beb861f9016dc06278887be/LICENSE.md",
     "OPENSCAD-DEMO-AGPL-3.0.txt": "https://raw.githubusercontent.com/cmeister2/manyfold_openscad/41a967e1d76fd10924cce1f2605e0422c81bcf5e/LICENSE"
   },
   "adapted_demo": {

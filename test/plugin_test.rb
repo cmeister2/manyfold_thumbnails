@@ -343,6 +343,14 @@ class ThumbnailsPluginTest < Minitest::Test
       session.https! if Rails.application.config.assume_ssl
     end
   end
+
+  def csrf_headers(session)
+    session.get("/models")
+    assert_equal 200, session.response.status
+    token = Nokogiri::HTML(session.response.body).at_css("meta[name='csrf-token']")&.[]("content")
+    assert token.present?, "The host should supply a browser CSRF token."
+    {"X-CSRF-Token" => token}
+  end
 end
 
 Dir[File.join(__dir__, "*_test.rb")].sort.each do |path|

@@ -39,7 +39,7 @@ npm run build:demo
 node test/demo/serve.mjs dist/demo
 ```
 
-Open <http://localhost:4174/manyfold_thumbnails/>. Docker exports the real pages from a disposable Manyfold 0.151.0 instance. The generated site in `dist/demo` runs without Manyfold or a database.
+Open <http://localhost:4174/manyfold_thumbnails/>. Docker exports the real pages from a disposable Manyfold 0.154.0 instance. The generated site in `dist/demo` runs without Manyfold or a database.
 
 Run `npx playwright install chromium` and `npm run test:demo` to check the demo in Chromium. The GitHub Pages workflow builds and tests pull requests, then publishes the tested site when changes reach `main`.
 
@@ -59,7 +59,7 @@ Inventor assemblies that need geometry fallback are given a temporary project co
 
 Relative sidecar resources, such as OBJ materials, glTF buffers or SolidWorks assembly components, can be read when Manyfold supplies the original local path with its extension. Downloaded or extensionless sources are processed as isolated temporary files; object-storage downloads may therefore lack sidecars. Companion staging is currently limited to Inventor assemblies. Use self-contained files when those resources are needed.
 
-By default, Catwalk handles only formats without another thumbnail provider in the running Manyfold installation. Manyfold's F3D renderer and FreeCAD saved-preview extraction remain selected for their supported types. Enabled Catwalk formats use priority 5, above Manyfold's default model thumbnail providers. The host selects one provider per MIME type; it does not try another provider after an empty result.
+By default, Catwalk handles only formats without another thumbnail provider in the running Manyfold installation. Manyfold's F3D renderer and FreeCAD saved-preview extraction remain selected for their supported types. Enabled Catwalk formats use priority 50, above Manyfold's default model thumbnail providers. The host selects one provider per MIME type; it does not try another provider after an empty result.
 
 ## Install and use
 
@@ -70,7 +70,7 @@ By default, Catwalk handles only formats without another thumbnail provider in t
 
 Newly processed enabled files receive Catwalk thumbnails when their reader can produce an image. Installation leaves the render setting unchanged. That shared setting also enables Manyfold's other model thumbnail providers.
 
-Administrators can open **Thumbnail settings** from **Settings → Plugins**. The format table shows every supported extension, its existing Manyfold provider, the current provider, and an **Enable Catwalk** checkbox. Extensions that share a provider are configured together. Check a core-supported type to override its provider with Catwalk, or uncheck a gap type to disable its thumbnails. The page also lists active overrides. FreeCAD is left on core by default; enabling it opts into Catwalk's saved-preview and geometry support.
+Administrators can open **Thumbnail settings** from **Settings → Plugins**. The format table shows every supported extension, its existing Manyfold provider, the current provider, and an **Enable Catwalk** checkbox. Extensions that share a provider are configured together. Check a core-supported type to override its provider with Catwalk, or uncheck a gap type to disable its thumbnails. The page also lists active overrides. FreeCAD is left on core by default; enabling it opts into Catwalk's saved-preview and geometry support, including on Manyfold 0.154.0. Extensions categorized by the host as slicer output stay outside Catwalk; this includes CNC `.nc` files on Manyfold 0.154.0. NetCDF `.cdf` and `.ncdf` files remain supported.
 
 Settings are stored in Manyfold's database and apply to web and worker processes without restarting them. Changes affect future processing, backfill and explicit regeneration; they do not replace existing thumbnails. The plugin generates all of its thumbnails through Catwalk, including Inventor saved previews.
 
@@ -138,6 +138,8 @@ The archive is written to `dist/manyfold_thumbnails.zip`; the source gemspec ver
 Renovate tracks Catwalk's GitHub releases and updates the version in `config/catwalk.json`. Download URLs and checksums come from that version's published metadata, so no checksum pins need updating in this repository. Catwalk updates use separate `fix` commits so merging them publishes a plugin release.
 
 Run `bin/test` with Python 3 and Docker to check downloads, thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Test assets are downloaded separately into ignored `test/vendor/catwalk` storage and mounted into network-isolated test containers; they are never included in the plugin ZIP.
+
+CI tests both the minimum supported Manyfold 0.151.0 and Manyfold 0.154.0, including browser settings submissions with CSRF protection.
 
 CI runs `bin/check-catwalk-formats` against the verified pinned executable's `--list-formats --json` catalog, checks its schema and Catwalk version, and requires every upstream extension to appear in either `CATWALK_EXTENSIONS` or the explicit `CATWALK_EXCLUDED_EXTENSIONS` list. Added, removed or renamed extensions fail the check, including on Renovate updates, until the registered formats and exclusions are reviewed.
 

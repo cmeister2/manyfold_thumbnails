@@ -8,21 +8,21 @@ retained in [OPENSCAD-DEMO-NOTICE.txt](OPENSCAD-DEMO-NOTICE.txt), with the origi
 of the adapted demo code, without declaring a license for the whole thumbnail
 plugin repository.
 
-The demo uses Manyfold 0.151.0's default compiled stylesheet and its icon fonts.
+The demo uses Manyfold 0.154.0's default compiled stylesheet and its icon fonts.
 These files preserve the upstream license texts and notices for those assets.
 Dependency versions come from `yarn.lock` in the pinned Docker image, rather
 than the ranges in its `package.json`.
 
 | Asset | Version | Notice |
 | --- | --- | --- |
-| Manyfold stylesheet | 0.151.0 | [AGPL-3.0](manyfold-LICENSE.md) |
+| Manyfold stylesheet | 0.154.0 | [AGPL-3.0](manyfold-LICENSE.md) |
 | Bootstrap CSS | 5.3.8 | [MIT](bootstrap-LICENSE.txt) |
-| Bootstrap Icons CSS and fonts | 1.13.1 | [MIT](bootstrap-icons-LICENSE.txt) |
+| Bootstrap Icons CSS and fonts | 1.13.2 | [MIT](bootstrap-icons-LICENSE.txt) |
 | RPG Awesome Continued CSS and font | 1.0.6 | [Upstream license](rpg-awesome-continued-LICENSE.md), [notice](rpg-awesome-continued-NOTICE.txt), [README](rpg-awesome-continued-README.md) |
 | Tom Select CSS | 2.6.2 | [Apache-2.0](tom-select-LICENSE.txt) |
-| Uppy Core CSS | 6.2.0 | [MIT](uppy-core-LICENSE.txt) |
+| Uppy Core CSS | 6.3.0 | [MIT](uppy-core-LICENSE.txt) |
 | Uppy Dashboard CSS | 5.1.0 | [MIT](uppy-dashboard-LICENSE.txt) |
-| driver.js CSS | 1.9.0 | [MIT](driverjs-LICENSE.txt) |
+| driver.js CSS | 1.10.2 | [MIT](driverjs-LICENSE.txt) |
 
 RPG Awesome Continued is by Miguel Rodríguez, Daniela Howe and Ivan Montiel,
 using icons from [Game Icons](https://game-icons.net/). Its package includes a
@@ -33,7 +33,7 @@ are retained together with the full [MIT](MIT.txt), [OFL 1.1](OFL-1.1.txt), and
 
 [manifest.json](manifest.json) records each exact package download, version and
 upstream repository, along with the pinned Manyfold image and
-[stylesheet source](https://github.com/manyfold3d/manyfold/tree/c89c8964c714749957656474ab1e3757ff8f12ca).
+[stylesheet source](https://github.com/manyfold3d/manyfold/tree/0939b3eb17c2ed0a0beb861f9016dc06278887be).
 The exporter checks each declared package version against that image's
 `yarn.lock` and checks the host source revision before publishing. The updated
 Uppy Core and driver.js licenses were copied from their exact npm archives,

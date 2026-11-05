@@ -88,6 +88,36 @@ class ThumbnailsPluginTest
     end
   end
 
+  def test_machine_output_extensions_are_excluded_from_catwalk
+    return unless MediaType.is_in_category?(Mime[:nc], :slicer)
+
+    refute ManyfoldThumbnails::Formats.supported?(filename_record("cut.nc"))
+    refute_includes ManyfoldThumbnails::Formats.enabled_extensions, "nc"
+    refute_includes ManyfoldThumbnails::Formats.catwalk_mime_types, Mime[:nc]
+    refute ManyfoldThumbnails::Formats.catwalk_groups.any? { |group| group[:extensions].include?("nc") }
+    assert_nil ManyfoldThumbnails::Formats.thumbnailer_for(filename_record("cut.nc"))
+    refute_includes FileHandlers.handlers_for(environment: :thumbnail, mime_type: Mime[:nc]),
+      FileHandlers::CatwalkThumbnailer
+    assert_raises(ManyfoldThumbnails::Configuration::InvalidConfiguration) do
+      ManyfoldThumbnails::Configuration.update!(enabled_mime_types: [Mime[:nc].to_s])
+    end
+  end
+
+  def test_legacy_scientific_format_selections_follow_core_mime_registrations
+    setting = SiteSettings.find_or_initialize_by(var: ManyfoldThumbnails::Configuration::SETTING_KEY)
+    setting.value = ["model/x-vtkhdf", "model/x-vtm", "model/x-nc"]
+    setting.save!(validate: false)
+
+    enabled = ManyfoldThumbnails::Configuration.enabled_mime_types
+    assert_includes enabled, Mime[:vtkhdf].to_s
+    assert_includes enabled, Mime[:vtm].to_s
+    if MediaType.is_in_category?(Mime[:nc], :slicer)
+      refute_includes enabled, Mime[:nc].to_s
+    else
+      assert_includes enabled, Mime[:nc].to_s
+    end
+  end
+
   def test_a_gap_format_can_be_disabled_and_reenabled
     assert_equal FileHandlers::CatwalkThumbnailer, thumbnail_handler(:pcd)
     ManyfoldThumbnails::Configuration.update!(enabled_mime_types:
@@ -173,7 +203,8 @@ class ThumbnailsPluginTest
       assert I18n.exists?("media_types.#{type}", :en), "Missing format name for .#{extension}"
     end
 
-    session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: ["", Mime[:obj].to_s]}})
+    session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: ["", Mime[:obj].to_s]}},
+      headers: csrf_headers(session))
     assert_equal 302, session.response.status
     assert_equal [Mime[:obj].to_s], ManyfoldThumbnails::Configuration.enabled_mime_types
     assert_equal FileHandlers::CatwalkThumbnailer, thumbnail_handler(:obj)
@@ -184,7 +215,8 @@ class ThumbnailsPluginTest
     assert_includes saved.at_css("#catwalk-active-overrides").text, ".obj"
     refute_includes saved.at_css("#catwalk-active-overrides").text, ".pcd"
 
-    session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: [""]}})
+    session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: [""]}},
+      headers: csrf_headers(session))
     assert_equal 302, session.response.status
     assert_empty ManyfoldThumbnails::Configuration.enabled_mime_types
     assert_equal FileHandlers::F3dCli, thumbnail_handler(:obj)
@@ -194,10 +226,24 @@ class ThumbnailsPluginTest
   def test_invalid_settings_submission_preserves_existing_overrides
     ManyfoldThumbnails::Configuration.update!(enabled_mime_types: [Mime[:obj].to_s])
     session = browser(@users.first)
-    session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: ["application/x-fictional"]}})
+    session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: ["application/x-fictional"]}},
+      headers: csrf_headers(session))
     assert_equal 422, session.response.status
     assert_equal [Mime[:obj].to_s], ManyfoldThumbnails::Configuration.enabled_mime_types
     assert_equal FileHandlers::CatwalkThumbnailer, thumbnail_handler(:obj)
+  end
+
+  def test_thumbnail_settings_reject_browser_writes_without_a_csrf_token
+    return unless ApplicationController.forgery_protection_strategy ==
+      ActionController::RequestForgeryProtection::ProtectionMethods::Exception
+
+    previous = ManyfoldThumbnails::Configuration.enabled_mime_types
+    session = browser(@users.first)
+    session.get("/manyfold_thumbnails/")
+    assert_equal 200, session.response.status
+    session.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: [Mime[:obj].to_s]}})
+    assert_equal 422, session.response.status
+    assert_equal previous, ManyfoldThumbnails::Configuration.enabled_mime_types
   end
 
   def test_thumbnail_configuration_and_navigation_are_administrator_only
@@ -224,7 +270,8 @@ class ThumbnailsPluginTest
     assert_equal 404, member.response.status
     member.get("/manyfold_thumbnails/")
     assert_equal 404, member.response.status
-    member.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: [Mime[:obj].to_s]}})
+    member.patch("/manyfold_thumbnails/", params: {configuration: {enabled_mime_types: [Mime[:obj].to_s]}},
+      headers: csrf_headers(member))
     assert_equal 404, member.response.status
     assert_equal previous_enabled, ManyfoldThumbnails::Configuration.enabled_mime_types
   end

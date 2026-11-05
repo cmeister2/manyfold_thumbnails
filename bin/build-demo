@@ -11,7 +11,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-IMAGE = "manyfold3d/manyfold-solo:0.151.0@sha256:772bcb18f0cb69d4fd0630d4676516f34fb37e42c3ac9d65eea5f173728e818e"
+IMAGE = "manyfold3d/manyfold-solo:0.154.0@sha256:fc6deade2a191033d109a8296876d504334dc14bee6097d0ae3ca4a218354ff7"
 
 
 def main():

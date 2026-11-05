@@ -27,15 +27,24 @@ module ManyfoldThumbnails
     end
 
     def self.supported?(record)
-      EXTENSIONS.include?(extension(record))
+      catwalk_extensions.include?(extension(record))
+    end
+
+    def self.catwalk_extensions
+      # A host may reserve an otherwise ambiguous extension for machine output.
+      # In 0.154, .nc means CNC instructions, not a NetCDF geometry dataset.
+      CATWALK_EXTENSIONS.reject do |extension|
+        type = Mime::Type.lookup_by_extension(extension)
+        type && MediaType.is_in_category?(type, :slicer)
+      end
     end
 
     def self.mime_types
-      EXTENSIONS.filter_map { |extension| Mime::Type.lookup_by_extension(extension) }.uniq
+      catwalk_mime_types
     end
 
     def self.catwalk_mime_types
-      CATWALK_EXTENSIONS.filter_map { |extension| Mime::Type.lookup_by_extension(extension) }.uniq
+      catwalk_extensions.filter_map { |extension| Mime::Type.lookup_by_extension(extension) }.uniq
     end
 
     def self.core_handler_for(type)
@@ -61,7 +70,7 @@ module ManyfoldThumbnails
 
     def self.enabled_extensions
       enabled = Configuration.enabled_mime_types
-      CATWALK_EXTENSIONS.select do |extension|
+      catwalk_extensions.select do |extension|
         type = Mime::Type.lookup_by_extension(extension)
         type && enabled.include?(type.to_s)
       end
@@ -69,7 +78,7 @@ module ManyfoldThumbnails
 
     def self.catwalk_groups
       enabled = Configuration.enabled_mime_types
-      CATWALK_EXTENSIONS.group_by { |extension| Mime::Type.lookup_by_extension(extension) }
+      catwalk_extensions.group_by { |extension| Mime::Type.lookup_by_extension(extension) }
         .filter_map do |type, extensions|
           next unless type
 

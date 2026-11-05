@@ -139,7 +139,7 @@ Renovate tracks Catwalk's GitHub releases and updates the version in `config/cat
 
 Run `bin/test` with Python 3 and Docker to check downloads, thumbnail dispatch, settings, workers, backfill and a packaged ZIP in disposable Manyfold containers. Test assets are downloaded separately into ignored `test/vendor/catwalk` storage and mounted into network-isolated test containers; they are never included in the plugin ZIP.
 
-CI tests both the minimum supported Manyfold 0.151.0 and Manyfold 0.154.0, including browser settings submissions with CSRF protection.
+CI tests both the pinned minimum supported Manyfold 0.151.0 and the current `manyfold3d/manyfold-solo:latest` image, including browser settings submissions with CSRF protection. Each job pulls its host image once before testing, so the source and packaged ZIP suites use the same image.
 
 CI runs `bin/check-catwalk-formats` against the verified pinned executable's `--list-formats --json` catalog, checks its schema and Catwalk version, and requires every upstream extension to appear in either `CATWALK_EXTENSIONS` or the explicit `CATWALK_EXCLUDED_EXTENSIONS` list. Added, removed or renamed extensions fail the check, including on Renovate updates, until the registered formats and exclusions are reviewed.
 

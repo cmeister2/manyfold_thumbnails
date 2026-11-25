@@ -23,7 +23,7 @@
     "@semantic-release/github": "12.0.10",
     "@semantic-release/release-notes-generator": "15.0.0-beta.3",
     "conventional-changelog-conventionalcommits": "10.4.1",
-    "semantic-release": "25.0.9"
+    "semantic-release": "26.0.1"
   },
   "overrides": {
     "@semantic-release/release-notes-generator": "15.0.0-beta.3"
